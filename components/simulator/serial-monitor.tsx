@@ -7,20 +7,18 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { cn } from "@/lib/utils"
 
-interface SerialLine {
-  id: number
+export interface SerialLine {
+  id: string
   text: string
   timestamp: string
 }
 
-interface SerialMonitorProps {
+export interface SerialMonitorProps {
   lines: SerialLine[]
   onSend: (data: string) => void
   onClear: () => void
   className?: string
 }
-
-let lineIdCounter = 0
 
 export function SerialMonitor({ lines, onSend, onClear, className }: SerialMonitorProps) {
   const [input, setInput] = useState("")
@@ -44,7 +42,7 @@ export function SerialMonitor({ lines, onSend, onClear, className }: SerialMonit
           <span className="text-xs font-medium">Serial Monitor</span>
           <span className="text-xs text-muted-foreground">({lines.length} lines)</span>
         </div>
-        <Button variant="ghost" size="icon" className="h-6 w-6" onClick={onClear} title="Clear">
+        <Button variant="ghost" size="icon" className="h-6 w-6" onClick={onClear} title="Clear serial output" aria-label="Clear serial output">
           <Trash2 className="h-3 w-3" />
         </Button>
       </div>
@@ -71,7 +69,7 @@ export function SerialMonitor({ lines, onSend, onClear, className }: SerialMonit
           placeholder="Send to Serial.read()…"
           className="h-7 font-mono text-xs bg-background"
         />
-        <Button size="sm" className="h-7 px-2" onClick={handleSend} disabled={!input.trim()}>
+        <Button size="sm" className="h-7 px-2" onClick={handleSend} disabled={!input.trim()} aria-label="Send to serial">
           <Send className="h-3 w-3" />
         </Button>
       </div>
@@ -82,7 +80,7 @@ export function SerialMonitor({ lines, onSend, onClear, className }: SerialMonit
 // Factory for creating serial lines — call this from the parent component
 export function makeSerialLine(text: string): SerialLine {
   return {
-    id: ++lineIdCounter,
+    id: crypto.randomUUID(),
     text,
     timestamp: new Date().toLocaleTimeString("en-US", { hour12: false }),
   }
