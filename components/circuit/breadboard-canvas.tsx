@@ -65,7 +65,6 @@ export function BreadboardCanvas({
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [pendingWireFrom, setPendingWireFrom] = useState<HolePosition | null>(null)
   const [hoveredNet, setHoveredNet] = useState<NodeId | null>(null)
-  const [, forceUpdate] = useState(0)
 
   const redraw = useCallback(() => {
     const canvas = canvasRef.current
@@ -128,7 +127,7 @@ export function BreadboardCanvas({
         })
         onDragConsumed()
         onNetlistChange()
-        forceUpdate(n => n + 1)
+        redraw()
         return
       }
 
@@ -142,7 +141,7 @@ export function BreadboardCanvas({
           bbState.addWire(pendingWireFrom, hole)
           setPendingWireFrom(null)
           onNetlistChange()
-          forceUpdate(n => n + 1)
+          redraw()
         }
         return
       }
@@ -187,7 +186,7 @@ export function BreadboardCanvas({
 
       setSelectedId(null)
     },
-    [draggedComponent, pendingWireFrom, bbState, onDragConsumed, onNetlistChange]
+    [draggedComponent, pendingWireFrom, bbState, onDragConsumed, onNetlistChange, redraw]
   )
 
   const handleKeyDown = useCallback(
@@ -208,10 +207,10 @@ export function BreadboardCanvas({
         }
         setSelectedId(null)
         onNetlistChange()
-        forceUpdate(n => n + 1)
+        redraw()
       }
     },
-    [selectedId, bbState, onNetlistChange]
+    [selectedId, bbState, onNetlistChange, redraw]
   )
 
   return (
