@@ -118,16 +118,12 @@ export function SimulatorView() {
         setIsRunning(true)
       } else if (event.type === "paused") {
         setRunState("paused")
-      } else if (event.type === "stopped") {
-        setRunState("idle")
-        setIsRunning(false)
       } else {
         bridge.handleAVREvent(event)
       }
     })
 
     return () => {
-      worker.postMessage({ type: "stop" } satisfies AVRCommand)
       worker.terminate()
     }
   }, [])
@@ -228,6 +224,11 @@ export function SimulatorView() {
       robotRef.current.reset(config.robotStartX, config.robotStartY, config.robotStartAngle)
     }
   }, [selectedArena])
+
+  const handleErrors = useCallback((errors: CompileDiagnostic[]) => {
+    setCompileErrors(errors)
+    setRunState("idle")
+  }, [])
 
   // Keyboard controls
   useEffect(() => {
@@ -458,10 +459,7 @@ export function SimulatorView() {
                   onCodeChange={setCode}
                   runState={runState}
                   onCommand={handleAVRCommand}
-                  onErrors={(errors) => {
-                    setCompileErrors(errors)
-                    setRunState("idle")
-                  }}
+                  onErrors={handleErrors}
                   errors={compileErrors}
                   board={board}
                   onBoardChange={setBoard}
