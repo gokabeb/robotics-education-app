@@ -55,8 +55,9 @@ export async function POST(req: NextRequest): Promise<NextResponse<CompileResult
       stderr = result.stderr
     } catch (err: unknown) {
       if (err && typeof err === "object" && "stdout" in err) {
-        stdout = (err as { stdout: string }).stdout ?? ""
-        stderr = (err as { stderr: string }).stderr ?? ""
+        const e = err as { stdout: string; stderr: string }
+        stdout = e.stdout ?? ""
+        stderr = e.stderr ?? ""
       } else {
         throw err
       }
