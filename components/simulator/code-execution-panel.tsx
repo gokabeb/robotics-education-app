@@ -1,241 +1,199 @@
+// components/simulator/code-execution-panel.tsx
 "use client"
 
-import { useState } from "react"
+import { useState, useCallback, useEffect } from "react"
+import dynamic from "next/dynamic"
+import { Play, Square, Pause, Zap, Loader2, ChevronDown } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { Textarea } from "@/components/ui/textarea"
+import { Badge } from "@/components/ui/badge"
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
-import { Play, Pause, Square, RotateCcw, Code2, ChevronDown, ChevronUp } from "lucide-react"
-import { motion } from "framer-motion"
-import { EXAMPLE_SCRIPTS, ExecutionState } from "@/lib/simulator/executor"
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import type { CompileDiagnostic, BoardId, AVRCommand } from "@/lib/avr/types"
+import { BOARD_PROFILES } from "@/lib/avr/board-profiles"
+import { compileSketch } from "@/lib/avr/compiler"
 
-interface CodeExecutionPanelProps {
+const MonacoEditor = dynamic(() => import("@monaco-editor/react"), {
+  ssr: false,
+  loading: () => (
+    <div className="flex h-full items-center justify-center text-muted-foreground text-sm">
+      Loading editor…
+    </div>
+  ),
+})
+
+type RunState = "idle" | "compiling" | "running" | "paused"
+
+const SPEED_OPTIONS: { label: string; value: number }[] = [
+  { label: "0.1×", value: 0.1 },
+  { label: "1× (real-time)", value: 1 },
+  { label: "10×", value: 10 },
+  { label: "100×", value: 100 },
+  { label: "1000×", value: 1000 },
+]
+
+export interface CodeExecutionPanelProps {
   code: string
   onCodeChange: (code: string) => void
-  executionState: ExecutionState | null
-  onExecute: () => void
-  onPause: () => void
-  onResume: () => void
-  onStop: () => void
-  isArduinoMode?: boolean
-  transpiledScript?: string
-  unsupportedConstructs?: string[]
+  runState: RunState
+  onCommand: (cmd: AVRCommand) => void
+  errors: CompileDiagnostic[]
+  board: BoardId
+  onBoardChange: (board: BoardId) => void
 }
 
 export function CodeExecutionPanel({
   code,
   onCodeChange,
-  executionState,
-  onExecute,
-  onPause,
-  onResume,
-  onStop,
-  isArduinoMode = false,
-  transpiledScript = "",
-  unsupportedConstructs = [],
+  runState,
+  onCommand,
+  errors,
+  board,
+  onBoardChange,
 }: CodeExecutionPanelProps) {
-  const [selectedExample, setSelectedExample] = useState<string>("")
-  const [showTranspiled, setShowTranspiled] = useState(false)
+  const [speed, setSpeed] = useState(1)
 
-  const handleExampleChange = (value: string) => {
-    setSelectedExample(value)
-    if (value && EXAMPLE_SCRIPTS[value as keyof typeof EXAMPLE_SCRIPTS]) {
-      onCodeChange(EXAMPLE_SCRIPTS[value as keyof typeof EXAMPLE_SCRIPTS])
-    }
-  }
+  const handleRun = useCallback(async () => {
+    onCommand({ type: "load", hex: "", board })
+    const result = await compileSketch({ code, board })
+    if (!result.success) return
+    onCommand({ type: "load", hex: result.hex, board })
+    onCommand({ type: "run" })
+  }, [code, board, onCommand])
 
-  const isRunning = executionState?.isRunning ?? false
-  const isPaused = executionState?.isPaused ?? false
+  const handleSpeedChange = useCallback((value: number) => {
+    setSpeed(value)
+    onCommand({ type: "setSpeed", multiplier: value })
+  }, [onCommand])
+
+  const errorMarkers = errors.map((e) => ({
+    startLineNumber: e.line ?? 1,
+    startColumn: e.column ?? 1,
+    endLineNumber: e.line ?? 1,
+    endColumn: (e.column ?? 1) + 20,
+    message: e.message,
+    severity: e.severity === "error" ? 8 : 4,
+  }))
 
   return (
-    <div className="h-full flex flex-col">
-      {/* Header */}
-      <div className="px-4 py-3 border-b border-border flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <Code2 className="h-4 w-4 text-muted-foreground" />
-          <span className="text-sm font-medium">Code Runner</span>
-        </div>
-        <Select value={selectedExample} onValueChange={handleExampleChange}>
-          <SelectTrigger className="w-32 h-7 text-xs">
-            <SelectValue placeholder="Examples" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="forward">Forward</SelectItem>
-            <SelectItem value="square">Square</SelectItem>
-            <SelectItem value="zigzag">Zigzag</SelectItem>
-            <SelectItem value="spin">Spin</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
-
-      {/* Arduino mode banners */}
-      {isArduinoMode && (
-        <div className="px-3 pt-3 space-y-2">
-          <div className="rounded-md bg-blue-500/10 border border-blue-500/20 px-3 py-2 text-xs text-blue-600 dark:text-blue-400">
-            Running converted Arduino code in simulator
-            {transpiledScript && (
-              <button
-                className="ml-2 underline hover:no-underline"
-                onClick={() => setShowTranspiled((v) => !v)}
-              >
-                {showTranspiled ? (
-                  <span className="inline-flex items-center gap-0.5">Hide script <ChevronUp className="h-3 w-3" /></span>
-                ) : (
-                  <span className="inline-flex items-center gap-0.5">View converted script <ChevronDown className="h-3 w-3" /></span>
-                )}
-              </button>
-            )}
-          </div>
-          {showTranspiled && transpiledScript && (
-            <div className="rounded-md bg-background border border-border p-2 font-mono text-xs text-muted-foreground whitespace-pre overflow-auto max-h-32">
-              {transpiledScript}
-            </div>
-          )}
-          {unsupportedConstructs.length > 0 && (
-            <div className="rounded-md bg-yellow-500/10 border border-yellow-500/20 px-3 py-2 text-xs text-yellow-700 dark:text-yellow-400">
-              Some Arduino constructs were skipped:{" "}
-              {unsupportedConstructs.slice(0, 3).map((c, i) => (
-                <span key={i}><code className="font-mono">{c.substring(0, 40)}</code>{i < Math.min(unsupportedConstructs.length, 3) - 1 ? ", " : ""}</span>
-              ))}
-              {unsupportedConstructs.length > 3 && ` and ${unsupportedConstructs.length - 3} more`}
-              {" "}({unsupportedConstructs.length} total). These are not supported in simulation.
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Code Editor */}
-      <div className="flex-1 p-3">
-        <Textarea
-          value={code}
-          onChange={(e) => onCodeChange(e.target.value)}
-          placeholder={`// Enter robot commands
-forward(50)
-wait(1000)
-right(50)
-wait(500)
-stop()`}
-          className="h-full min-h-[200px] font-mono text-xs bg-background border-border resize-none"
-          disabled={isRunning}
-        />
-      </div>
-
-      {/* Status */}
-      {executionState && (
-        <div className="px-4 py-2 border-t border-border">
-          <div className="flex items-center gap-2 text-xs">
-            <span
-              className={`flex items-center gap-1.5 rounded-full px-2 py-0.5 ${
-                isRunning
-                  ? isPaused
-                    ? "bg-chart-4/10 text-chart-4"
-                    : "bg-primary/10 text-primary"
-                  : "bg-secondary text-muted-foreground"
-              }`}
-            >
-              <span
-                className={`h-1.5 w-1.5 rounded-full ${
-                  isRunning
-                    ? isPaused
-                      ? "bg-chart-4"
-                      : "bg-primary animate-pulse"
-                    : "bg-muted-foreground"
-                }`}
-              />
-              {isRunning ? (isPaused ? "Paused" : "Running") : "Stopped"}
-            </span>
-            {isRunning && (
-              <span className="text-muted-foreground">
-                Line {executionState.currentLine + 1}
-              </span>
-            )}
-          </div>
-          {executionState.error && (
-            <motion.p
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              className="mt-2 text-xs text-destructive"
-            >
-              Error: {executionState.error}
-            </motion.p>
-          )}
-        </div>
-      )}
-
-      {/* Controls */}
-      <div className="p-3 border-t border-border flex gap-2">
-        {!isRunning ? (
+    <div className="flex flex-col h-full">
+      <div className="flex items-center gap-2 border-b border-border px-3 py-2 shrink-0">
+        {runState === "idle" || runState === "compiling" ? (
           <Button
             size="sm"
-            className="flex-1 bg-primary text-primary-foreground"
-            onClick={onExecute}
-            disabled={!code.trim()}
+            className="h-7 gap-1.5 bg-primary text-primary-foreground"
+            onClick={handleRun}
+            disabled={runState === "compiling"}
+            aria-label="Compile and run sketch"
           >
-            <Play className="mr-2 h-4 w-4" />
-            Run
-          </Button>
-        ) : isPaused ? (
-          <Button
-            size="sm"
-            className="flex-1 bg-primary text-primary-foreground"
-            onClick={onResume}
-          >
-            <Play className="mr-2 h-4 w-4" />
-            Resume
+            {runState === "compiling" ? (
+              <><Loader2 className="h-3 w-3 animate-spin" /> Compiling…</>
+            ) : (
+              <><Play className="h-3 w-3" /> Run</>
+            )}
           </Button>
         ) : (
-          <Button
-            size="sm"
-            variant="outline"
-            className="flex-1 border-border"
-            onClick={onPause}
-          >
-            <Pause className="mr-2 h-4 w-4" />
-            Pause
-          </Button>
+          <>
+            {runState === "running" ? (
+              <Button size="sm" variant="outline" className="h-7 gap-1.5" onClick={() => onCommand({ type: "pause" })} aria-label="Pause execution">
+                <Pause className="h-3 w-3" /> Pause
+              </Button>
+            ) : (
+              <Button size="sm" className="h-7 gap-1.5 bg-primary text-primary-foreground" onClick={() => onCommand({ type: "resume" })} aria-label="Resume execution">
+                <Play className="h-3 w-3" /> Resume
+              </Button>
+            )}
+            <Button size="sm" variant="outline" className="h-7 gap-1.5 text-destructive" onClick={() => onCommand({ type: "stop" })} aria-label="Stop execution">
+              <Square className="h-3 w-3" /> Stop
+            </Button>
+          </>
         )}
-        <Button
-          size="sm"
-          variant="outline"
-          className="border-border"
-          onClick={onStop}
-          disabled={!isRunning}
-        >
-          <Square className="h-4 w-4" />
-        </Button>
-        <Button
-          size="sm"
-          variant="outline"
-          className="border-border"
-          onClick={() => onCodeChange("")}
-          disabled={isRunning}
-        >
-          <RotateCcw className="h-4 w-4" />
-        </Button>
+
+        {runState !== "idle" && runState !== "compiling" && (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm" className="h-7 gap-1" aria-label="Simulation speed">
+                <Zap className="h-3 w-3" />
+                {SPEED_OPTIONS.find((s) => s.value === speed)?.label ?? `${speed}×`}
+                <ChevronDown className="h-3 w-3" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent>
+              {SPEED_OPTIONS.map((opt) => (
+                <DropdownMenuItem key={opt.value} onClick={() => handleSpeedChange(opt.value)}>
+                  {opt.label}
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
+
+        <div className="ml-auto flex items-center gap-2">
+          {errors.length > 0 && (
+            <Badge variant="destructive" className="text-xs">
+              {errors.filter((e) => e.severity === "error").length} error(s)
+            </Badge>
+          )}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm" className="h-7 text-xs gap-1" aria-label="Select board">
+                {BOARD_PROFILES[board].displayName}
+                <ChevronDown className="h-3 w-3" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent>
+              {(Object.keys(BOARD_PROFILES) as BoardId[]).map((b) => (
+                <DropdownMenuItem key={b} onClick={() => onBoardChange(b)}>
+                  {BOARD_PROFILES[b].displayName}
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
       </div>
 
-      {/* Help */}
-      <div className="px-4 py-3 border-t border-border bg-secondary/30">
-        <p className="text-xs text-muted-foreground font-medium mb-2">
-          Available Commands:
-        </p>
-        <div className="grid grid-cols-2 gap-1 text-xs text-muted-foreground font-mono">
-          <span>forward(speed)</span>
-          <span>backward(speed)</span>
-          <span>left(speed)</span>
-          <span>right(speed)</span>
-          <span>stop()</span>
-          <span>wait(ms)</span>
-          <span className="col-span-2">setMotors(left, right)</span>
+      {errors.filter((e) => e.severity === "error").length > 0 && (
+        <div className="border-b border-destructive/30 bg-destructive/5 px-3 py-2 text-xs font-mono space-y-0.5 max-h-24 overflow-auto shrink-0">
+          {errors.filter((e) => e.severity === "error").map((e, i) => (
+            <div key={i} className="text-destructive">
+              {e.line ? `Line ${e.line}: ` : ""}{e.message}
+            </div>
+          ))}
         </div>
+      )}
+
+      <div className="flex-1 min-h-0">
+        <MonacoEditor
+          height="100%"
+          language="cpp"
+          theme="vs-dark"
+          value={code}
+          onChange={(val) => onCodeChange(val ?? "")}
+          options={{
+            minimap: { enabled: false },
+            fontSize: 12,
+            lineNumbers: "on",
+            scrollBeyondLastLine: false,
+            wordWrap: "on",
+            automaticLayout: true,
+            readOnly: runState === "running" || runState === "paused",
+          }}
+          beforeMount={(monaco) => {
+            monaco.languages.setLanguageConfiguration("cpp", {
+              comments: { lineComment: "//", blockComment: ["/*", "*/"] },
+            })
+          }}
+          onMount={(editor, monaco) => {
+            if (errorMarkers.length > 0) {
+              const model = editor.getModel()
+              if (model) monaco.editor.setModelMarkers(model, "xylo", errorMarkers)
+            }
+          }}
+        />
       </div>
     </div>
   )
 }
-
-
