@@ -65,7 +65,7 @@ describe("LED reverse bias", () => {
   it("passes negligible reverse current (< 1µA)", () => {
     const vs = new VoltageSource("vs_vcc", "CATHODE", "GND", 5.0)
     const r  = new Resistor("r1", "CATHODE", "ANODE", 220)
-    const led = new LED("led1", "ANODE", "GND", "red")
+    const led = new LED("led1", "GND", "ANODE", "red")
 
     const solver = new MNASolver()
     solver.setup(["CATHODE", "ANODE"], [vs.voltageSourceId])
