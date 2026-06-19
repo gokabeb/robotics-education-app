@@ -152,6 +152,9 @@ importers:
       matter-js:
         specifier: ^0.20.0
         version: 0.20.0
+      monaco-editor:
+        specifier: ^0.55.1
+        version: 0.55.1
       next:
         specifier: 16.0.10
         version: 16.0.10(react-dom@19.2.0(react@19.2.0))(react@19.2.0)

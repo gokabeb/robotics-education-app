@@ -6,12 +6,16 @@ const nextConfig = {
   images: {
     unoptimized: true,
   },
-  // Empty turbopack config tells Next.js 16 the webpack config below is intentional.
-  // avr8js workers use `new Worker(new URL(...))` syntax which Turbopack handles natively.
+  // Enable Turbopack for `next dev`.
+  // Turbopack handles `new Worker(new URL(..., import.meta.url))` natively — no extra config needed.
   turbopack: {},
+
+  // webpack() only runs for production builds (next build) because Turbopack is used in dev.
+  // Setting globalObject='self' is required so the AVR Web Worker bundle (Task 5)
+  // bootstraps correctly in a browser Worker context where `self` exists but `global` does not.
+  // avr8js itself ships no workers — this is pre-emptive for workers/avr-worker.ts.
   webpack: (config, { isServer }) => {
     if (!isServer) {
-      // Required for avr8js WASM/worker compatibility in browsers
       config.output.globalObject = 'self'
     }
 
