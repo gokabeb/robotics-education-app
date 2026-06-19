@@ -1,8 +1,10 @@
 // components/simulator/code-execution-panel.tsx
 "use client"
 
-import { useState, useCallback, useEffect } from "react"
+import { useState, useCallback, useEffect, useRef } from "react"
 import dynamic from "next/dynamic"
+import type { Monaco } from "@monaco-editor/react"
+import type { editor } from "monaco-editor"
 import { Play, Square, Pause, Zap, Loader2, ChevronDown } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -41,6 +43,7 @@ export interface CodeExecutionPanelProps {
   runState: RunState
   onCommand: (cmd: AVRCommand) => void
   errors: CompileDiagnostic[]
+  onErrors: (errors: CompileDiagnostic[]) => void
   board: BoardId
   onBoardChange: (board: BoardId) => void
 }
@@ -51,32 +54,45 @@ export function CodeExecutionPanel({
   runState,
   onCommand,
   errors,
+  onErrors,
   board,
   onBoardChange,
 }: CodeExecutionPanelProps) {
   const [speed, setSpeed] = useState(1)
+  const editorRef = useRef<editor.IStandaloneCodeEditor | null>(null)
+  const monacoRef = useRef<Monaco | null>(null)
+
+  const errorDiagnostics = errors.filter((e) => e.severity === "error")
+
+  useEffect(() => {
+    const model = editorRef.current?.getModel()
+    if (!model || !monacoRef.current) return
+    const markers = errors.map((e) => ({
+      startLineNumber: e.line ?? 1,
+      startColumn: e.column ?? 1,
+      endLineNumber: e.line ?? 1,
+      endColumn: (e.column ?? 1) + 20,
+      message: e.message,
+      severity: e.severity === "error" ? 8 : 4,
+    }))
+    monacoRef.current.editor.setModelMarkers(model, "xylo", markers)
+  }, [errors])
 
   const handleRun = useCallback(async () => {
     onCommand({ type: "load", hex: "", board })
     const result = await compileSketch({ code, board })
-    if (!result.success) return
+    if (!result.success) {
+      onErrors(result.errors)
+      return
+    }
     onCommand({ type: "load", hex: result.hex, board })
     onCommand({ type: "run" })
-  }, [code, board, onCommand])
+  }, [code, board, onCommand, onErrors])
 
   const handleSpeedChange = useCallback((value: number) => {
     setSpeed(value)
     onCommand({ type: "setSpeed", multiplier: value })
   }, [onCommand])
-
-  const errorMarkers = errors.map((e) => ({
-    startLineNumber: e.line ?? 1,
-    startColumn: e.column ?? 1,
-    endLineNumber: e.line ?? 1,
-    endColumn: (e.column ?? 1) + 20,
-    message: e.message,
-    severity: e.severity === "error" ? 8 : 4,
-  }))
 
   return (
     <div className="flex flex-col h-full">
@@ -132,9 +148,9 @@ export function CodeExecutionPanel({
         )}
 
         <div className="ml-auto flex items-center gap-2">
-          {errors.length > 0 && (
+          {errorDiagnostics.length > 0 && (
             <Badge variant="destructive" className="text-xs">
-              {errors.filter((e) => e.severity === "error").length} error(s)
+              {errorDiagnostics.length} error(s)
             </Badge>
           )}
           <DropdownMenu>
@@ -155,10 +171,10 @@ export function CodeExecutionPanel({
         </div>
       </div>
 
-      {errors.filter((e) => e.severity === "error").length > 0 && (
+      {errorDiagnostics.length > 0 && (
         <div className="border-b border-destructive/30 bg-destructive/5 px-3 py-2 text-xs font-mono space-y-0.5 max-h-24 overflow-auto shrink-0">
-          {errors.filter((e) => e.severity === "error").map((e, i) => (
-            <div key={i} className="text-destructive">
+          {errorDiagnostics.map((e, i) => (
+            <div key={`${e.line ?? 0}-${e.column ?? 0}-${i}`} className="text-destructive">
               {e.line ? `Line ${e.line}: ` : ""}{e.message}
             </div>
           ))}
@@ -187,10 +203,8 @@ export function CodeExecutionPanel({
             })
           }}
           onMount={(editor, monaco) => {
-            if (errorMarkers.length > 0) {
-              const model = editor.getModel()
-              if (model) monaco.editor.setModelMarkers(model, "xylo", errorMarkers)
-            }
+            editorRef.current = editor
+            monacoRef.current = monaco
           }}
         />
       </div>
