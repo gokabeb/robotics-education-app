@@ -9,15 +9,31 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { SimulatorCanvas } from "./simulator-canvas"
 import { SimulatorControls } from "./simulator-controls"
 import { CodeExecutionPanel } from "./code-execution-panel"
+import { SerialMonitor, makeSerialLine } from "./serial-monitor"
 import { VirtualRobot, RobotState } from "@/lib/simulator/robot"
 import { PhysicsWorld } from "@/lib/simulator/physics"
-import { RobotExecutor, ExecutionState, isArduinoCode } from "@/lib/simulator/executor"
-import { transpileArduino } from "@/lib/simulator/arduino-transpiler"
 import { ARENAS } from "@/lib/simulator/arena"
 import { SAMPLE_CHALLENGES } from "@/lib/challenges/types"
 import { ChallengeOverlay } from "./challenge-overlay"
+import { GPIOBridge } from "@/lib/avr/gpio-bridge"
+import type { AVRCommand, AVREvent, BoardId, CompileDiagnostic } from "@/lib/avr/types"
 import { toast } from "sonner"
 import Link from "next/link"
+
+type RunState = "idle" | "compiling" | "running" | "paused"
+
+const DEFAULT_CODE = `void setup() {
+  pinMode(13, OUTPUT);
+  Serial.begin(9600);
+}
+
+void loop() {
+  digitalWrite(13, HIGH);
+  delay(500);
+  digitalWrite(13, LOW);
+  delay(500);
+  Serial.println("Blink!");
+}`
 
 export function SimulatorView() {
   // Challenge mode — must be before useState calls that depend on it
@@ -33,12 +49,18 @@ export function SimulatorView() {
   const [speed, setSpeed] = useState(50)
   const [goalReached, setGoalReached] = useState(false)
   const [arenaKey, setArenaKey] = useState(0)
-  const [activeTab, setActiveTab] = useState<"controls" | "code">("controls")
-  const [code, setCode] = useState("")
-  const [executionState, setExecutionState] = useState<ExecutionState | null>(null)
-  const [isArduinoMode, setIsArduinoMode] = useState(false)
-  const [transpiledScript, setTranspiledScript] = useState<string>("")
-  const [unsupportedConstructs, setUnsupportedConstructs] = useState<string[]>([])
+  const [activeTab, setActiveTab] = useState<"controls" | "code" | "serial">("controls")
+
+  // AVR state
+  const [code, setCode] = useState(() =>
+    typeof window !== "undefined" ? (sessionStorage.getItem("xylo_code") ?? DEFAULT_CODE) : DEFAULT_CODE
+  )
+  const [board, setBoard] = useState<BoardId>("arduino-uno")
+  const [runState, setRunState] = useState<RunState>("idle")
+  const [compileErrors, setCompileErrors] = useState<CompileDiagnostic[]>([])
+  const [serialLines, setSerialLines] = useState<ReturnType<typeof makeSerialLine>[]>([])
+
+  // Challenge state
   const [challengeResult, setChallengeResult] = useState<{
     completed: boolean; score: number; message: string; timeSeconds?: number; collisionCount?: number
   } | null>(null)
@@ -48,39 +70,75 @@ export function SimulatorView() {
 
   const robotRef = useRef<VirtualRobot | null>(null)
   const physicsRef = useRef<PhysicsWorld | null>(null)
-  const executorRef = useRef<RobotExecutor | null>(null)
+  const avrWorkerRef = useRef<Worker | null>(null)
+  const bridgeRef = useRef<GPIOBridge | null>(null)
 
-  // Load AI-generated code from session storage on mount
+  // Show toast if code was loaded from session storage
   useEffect(() => {
-    const savedCode = sessionStorage.getItem("xylo_code")
     const projectName = sessionStorage.getItem("xylo_project_name")
-    
-    if (savedCode) {
-      setCode(savedCode)
-      setActiveTab("code")
+    if (sessionStorage.getItem("xylo_code") && projectName) {
+      toast.success(`Loaded code from: ${projectName}`, {
+        description: "Ready to test in simulator!",
+      })
+    }
+  }, [])
 
-      // Auto-detect and transpile Arduino code
-      if (isArduinoCode(savedCode)) {
-        setIsArduinoMode(true)
-        const result = transpileArduino(savedCode)
-        setTranspiledScript(result.script)
-        setUnsupportedConstructs(result.unsupported)
-        if (result.error) {
-          toast.error(`Transpile error: ${result.error}`)
+  // Create AVR worker and GPIO bridge on mount
+  useEffect(() => {
+    const worker = new Worker(new URL("../../workers/avr-worker.ts", import.meta.url))
+    avrWorkerRef.current = worker
+
+    const bridge = new GPIOBridge({
+      avrWorker: worker,
+      onPinChange: ({ pin, high }) => {
+        // Phase 1: pin 13 maps to robot LED indicator
+        if (pin === 13) {
+          setIsRunning(high)
         }
-      }
+      },
+      onSerialOutput: (text) => {
+        setSerialLines((prev) => [...prev.slice(-499), makeSerialLine(text)])
+      },
+      onAVRError: (message) => {
+        toast.error(`Execution error: ${message}`)
+        setRunState("idle")
+        setIsRunning(false)
+      },
+      onAVRStopped: () => {
+        setRunState("idle")
+        setIsRunning(false)
+      },
+    })
+    bridgeRef.current = bridge
 
-      if (projectName) {
-        toast.success(`Loaded code from: ${projectName}`, {
-          description: "Ready to test in simulator!",
-        })
+    worker.addEventListener("message", (e: MessageEvent<AVREvent>) => {
+      const event = e.data
+      if (event.type === "running") {
+        setRunState("running")
+        setIsRunning(true)
+      } else if (event.type === "paused") {
+        setRunState("paused")
+      } else if (event.type === "stopped") {
+        setRunState("idle")
+        setIsRunning(false)
+      } else {
+        bridge.handleAVREvent(event)
       }
+    })
+
+    return () => {
+      worker.postMessage({ type: "stop" } satisfies AVRCommand)
+      worker.terminate()
     }
   }, [])
 
   const handleToggleRun = useCallback(() => {
-    setIsRunning((prev) => !prev)
-  }, [])
+    if (runState === "running") {
+      avrWorkerRef.current?.postMessage({ type: "pause" } satisfies AVRCommand)
+    } else if (runState === "paused") {
+      avrWorkerRef.current?.postMessage({ type: "resume" } satisfies AVRCommand)
+    }
+  }, [runState])
 
   const handleReset = useCallback(() => {
     const config = ARENAS.find((a) => a.id === selectedArena) || ARENAS[0]
@@ -102,7 +160,7 @@ export function SimulatorView() {
     if (!goalReached) {
       setGoalReached(true)
       setIsRunning(false)
-      executorRef.current?.stop()
+      avrWorkerRef.current?.postMessage({ type: "stop" } satisfies AVRCommand)
 
       if (challengeDef && challengeId) {
         const timeSeconds = runStartTimeRef.current
@@ -140,60 +198,18 @@ export function SimulatorView() {
     }
   }, [goalReached, challengeDef, challengeId, code])
 
-  // Code execution handlers
-  const handleExecuteCode = useCallback(() => {
-    if (!robotRef.current || !physicsRef.current || !code.trim()) return
+  const handleAVRCommand = useCallback((cmd: AVRCommand) => {
+    if (!avrWorkerRef.current) return
 
-    // Use transpiled script if in Arduino mode, otherwise use raw code
-    const scriptToRun = isArduinoMode ? transpiledScript : code
-
-    if (isArduinoMode && !transpiledScript) {
-      toast.error("Transpilation produced no runnable script.")
+    if (cmd.type === "load" && cmd.hex === "") {
+      // CodeExecutionPanel signals compile-start — update state, let panel do the compile
+      setRunState("compiling")
+      setCompileErrors([])
       return
     }
 
-    const executor = new RobotExecutor(
-      robotRef.current,
-      physicsRef.current,
-      {
-        onStateChange: setExecutionState,
-        onRobotUpdate: setRobotState,
-        onComplete: () => {
-          toast.success("Code execution completed!")
-          setIsRunning(false)
-        },
-        onError: (error) => {
-          toast.error(`Execution error: ${error}`)
-          setIsRunning(false)
-        },
-        getSensorValue: (sensor) => {
-          const state = robotRef.current?.getState()
-          if (!state) return 0
-          switch (sensor) {
-            case "front": return state.sensors.front
-            case "left": return state.sensors.left
-            case "right": return state.sensors.right
-            case "lineCenter": return state.sensors.lineCenter ? 1 : 0
-            default: return 0
-          }
-        },
-      }
-    )
-
-    executorRef.current = executor
-    const commands = executor.parseScript(scriptToRun)
-
-    // Reset challenge tracking
-    if (challengeDef) {
-      runStartTimeRef.current = Date.now()
-      collisionCountRef.current = 0
-      setCollisionCount(0)
-      setChallengeResult(null)
-    }
-
-    setIsRunning(true)
-    executor.execute(commands)
-  }, [code, isArduinoMode, transpiledScript, challengeDef])
+    avrWorkerRef.current.postMessage(cmd)
+  }, [])
 
   const handleCollision = useCallback((count: number) => {
     collisionCountRef.current = count
@@ -213,24 +229,11 @@ export function SimulatorView() {
     }
   }, [selectedArena])
 
-  const handlePauseCode = useCallback(() => {
-    executorRef.current?.pause()
-  }, [])
-
-  const handleResumeCode = useCallback(() => {
-    executorRef.current?.resume()
-  }, [])
-
-  const handleStopCode = useCallback(() => {
-    executorRef.current?.stop()
-    setIsRunning(false)
-  }, [])
-
   // Keyboard controls
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (!robotRef.current) return
-      
+
       switch (e.key.toLowerCase()) {
         case "w":
         case "arrowup":
@@ -263,7 +266,7 @@ export function SimulatorView() {
 
     const handleKeyUp = (e: KeyboardEvent) => {
       if (!robotRef.current) return
-      
+
       const movementKeys = ["w", "a", "s", "d", "arrowup", "arrowdown", "arrowleft", "arrowright"]
       if (movementKeys.includes(e.key.toLowerCase())) {
         robotRef.current.stop()
@@ -414,10 +417,11 @@ export function SimulatorView() {
             transition={{ duration: 0.5, delay: 0.2 }}
             className="rounded-xl border border-border bg-card overflow-hidden"
           >
-            <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as "controls" | "code")}>
-              <TabsList className="grid w-full grid-cols-2">
+            <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as typeof activeTab)}>
+              <TabsList className="grid w-full grid-cols-3">
                 <TabsTrigger value="controls">Controls</TabsTrigger>
                 <TabsTrigger value="code">Code</TabsTrigger>
+                <TabsTrigger value="serial">Serial</TabsTrigger>
               </TabsList>
               <TabsContent value="controls" className="p-4 m-0">
                 <SimulatorControls
@@ -448,18 +452,26 @@ export function SimulatorView() {
                   onSpeedChange={setSpeed}
                 />
               </TabsContent>
-              <TabsContent value="code" className="m-0">
+              <TabsContent value="code" className="m-0 h-[400px]">
                 <CodeExecutionPanel
                   code={code}
                   onCodeChange={setCode}
-                  executionState={executionState}
-                  onExecute={handleExecuteCode}
-                  onPause={handlePauseCode}
-                  onResume={handleResumeCode}
-                  onStop={handleStopCode}
-                  isArduinoMode={isArduinoMode}
-                  transpiledScript={transpiledScript}
-                  unsupportedConstructs={unsupportedConstructs}
+                  runState={runState}
+                  onCommand={handleAVRCommand}
+                  onErrors={(errors) => {
+                    setCompileErrors(errors)
+                    setRunState("idle")
+                  }}
+                  errors={compileErrors}
+                  board={board}
+                  onBoardChange={setBoard}
+                />
+              </TabsContent>
+              <TabsContent value="serial" className="m-0 p-2">
+                <SerialMonitor
+                  lines={serialLines}
+                  onSend={(data) => bridgeRef.current?.sendSerial(data)}
+                  onClear={() => setSerialLines([])}
                 />
               </TabsContent>
             </Tabs>
@@ -469,4 +481,3 @@ export function SimulatorView() {
     </div>
   )
 }
-
