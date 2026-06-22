@@ -86,6 +86,7 @@ export function MissionSandbox({ mission, onComplete, className }: MissionSandbo
   const codeRef = useRef(code)
   const latestFaultsRef = useRef<ComponentFault[]>([])
   const latestNetlistRef = useRef<SerializedNetlist>(mission.initial.circuit)
+  const brightnessMapRef = useRef<Record<string, number>>({})
 
   // Buffers drained on each 100ms tick — see Task 4's MissionSimSnapshot shape.
   const serialBufferRef = useRef("")
@@ -131,7 +132,7 @@ export function MissionSandbox({ mission, onComplete, className }: MissionSandbo
       circuitWorker,
       pinNodeMap: buildPinNodeMap(),
       onFault: (f) => { latestFaultsRef.current = f },
-      onBrightnessUpdate: (bm) => setBrightnessMap(bm),
+      onBrightnessUpdate: (bm) => { brightnessMapRef.current = bm; setBrightnessMap(bm) },
     })
     bridgeRef.current = bridge
 
@@ -189,7 +190,7 @@ export function MissionSandbox({ mission, onComplete, className }: MissionSandbo
       const snapshot: MissionSimSnapshot = {
         nowMs: Date.now(),
         netlist: latestNetlistRef.current,
-        brightnessMap,
+        brightnessMap: brightnessMapRef.current,
         faults: latestFaultsRef.current,
         code: codeRef.current,
         serialBuffer: serialBufferRef.current,
@@ -215,7 +216,7 @@ export function MissionSandbox({ mission, onComplete, className }: MissionSandbo
       }
     }, TICK_MS)
     return () => clearInterval(interval)
-  }, [brightnessMap, onComplete])
+  }, [onComplete])
 
   const handleSerialSend = useCallback((data: string) => {
     gpioBridgeRef.current?.sendSerial(data)
