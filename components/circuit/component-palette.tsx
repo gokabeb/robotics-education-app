@@ -4,13 +4,13 @@
 import { cn } from "@/lib/utils"
 import type { DraggedComponent } from "./breadboard-canvas"
 
-interface PaletteItem {
+export interface PaletteItem {
   label: string
   component: DraggedComponent
   color?: string
 }
 
-const PALETTE_ITEMS: PaletteItem[] = [
+const DEFAULT_PALETTE_ITEMS: PaletteItem[] = [
   {
     label: "220Ω",
     component: { type: "resistor", params: { resistance: 220 } },
@@ -42,16 +42,20 @@ const PALETTE_ITEMS: PaletteItem[] = [
 
 export interface ComponentPaletteProps {
   onPick: (comp: DraggedComponent) => void
+  /** Restrict the palette (e.g. to a mission's allowed components). Defaults
+   *  to the full freeplay set. */
+  items?: PaletteItem[]
   className?: string
 }
 
-export function ComponentPalette({ onPick, className }: ComponentPaletteProps) {
+export function ComponentPalette({ onPick, items, className }: ComponentPaletteProps) {
+  const paletteItems = items ?? DEFAULT_PALETTE_ITEMS
   return (
     <div className={cn("flex flex-col gap-1", className)}>
       <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide px-1 mb-0.5">
         Components
       </p>
-      {PALETTE_ITEMS.map((item) => (
+      {paletteItems.map((item) => (
         <button
           key={item.label}
           onClick={() => onPick(item.component)}
