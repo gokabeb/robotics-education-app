@@ -1,0 +1,43 @@
+{
+  "id": "button-controlled-led",
+  "title": "Button-Controlled LED",
+  "subtitle": "Light an LED only while a button is held down.",
+  "difficulty": 2,
+  "ageRange": [9, 13],
+  "estimatedMinutes": 12,
+  "tags": ["LED", "digital-input", "button"],
+  "layout": { "circuit": true, "codeEditor": true, "serialMonitor": false },
+  "initial": {
+    "circuit": { "nodes": [], "components": [] },
+    "code": "void setup() {\n  pinMode(2, INPUT_PULLUP); // button\n  pinMode(13, OUTPUT);      // LED\n}\n\nvoid loop() {\n  // TODO: read the button on pin 2, drive the LED to match\n}\n",
+    "lockedComponentIds": [],
+    "lockedWireIds": [],
+    "virtualInputs": [
+      { "id": "btn1", "label": "Push Button", "pin": 2 }
+    ]
+  },
+  "palette": [
+    { "type": "resistor", "label": "220Ω", "params": { "resistance": 220 } },
+    { "type": "led", "label": "LED Red", "params": { "color": "red" }, "color": "#ff3333" }
+  ],
+  "completionCriteria": [
+    { "id": "c-resistor", "type": "component-present", "componentType": "resistor", "minCount": 1 },
+    { "id": "c-led", "type": "component-present", "componentType": "led", "minCount": 1 },
+    { "id": "c-press", "type": "virtual-input-pressed", "inputId": "btn1", "minPresses": 1 },
+    { "id": "c-lit", "type": "led-lit", "minBrightness": 0.3, "durationMs": 500 },
+    { "id": "c-read", "type": "function-called", "functionName": "digitalRead" },
+    { "id": "c-safe", "type": "fault-free" }
+  ],
+  "passCriteria": "all",
+  "hints": [
+    { "id": "h1", "afterSeconds": 100, "tier": 1, "content": "INPUT_PULLUP means the pin reads HIGH when the button is NOT pressed, and LOW when it IS pressed." },
+    { "id": "h2", "afterSeconds": 200, "tier": 2, "content": "Wire the LED through a resistor to pin 13 and GND, just like the blink mission — then use digitalRead(2) to decide HIGH or LOW." },
+    { "id": "h3", "afterSeconds": 360, "tier": 3, "content": "void loop() { digitalWrite(13, digitalRead(2) == LOW ? HIGH : LOW); }" }
+  ],
+  "narrative": {
+    "briefing": "Robots react to the world through inputs, not just outputs. Wire up a push button and make an LED respond to it in real time.",
+    "context": "digitalRead() returns the current voltage on a pin as HIGH or LOW. Combined with INPUT_PULLUP, a button press pulls the pin to LOW.",
+    "successMessage": "Your LED responds to the button! You just built your first input-driven circuit."
+  },
+  "aiMentorConfig": { "assistanceLevel": "nudge", "neverReveal": ["c-lit"] }
+}

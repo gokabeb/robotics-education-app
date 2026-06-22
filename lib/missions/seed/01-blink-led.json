@@ -1,0 +1,40 @@
+{
+  "id": "blink-led",
+  "title": "Make an LED Blink",
+  "subtitle": "Wire an LED to pin 13 and blink it once a second.",
+  "difficulty": 1,
+  "ageRange": [8, 12],
+  "estimatedMinutes": 10,
+  "tags": ["LED", "digital-output", "resistor"],
+  "layout": { "circuit": true, "codeEditor": true, "serialMonitor": false },
+  "initial": {
+    "circuit": { "nodes": [], "components": [] },
+    "code": "void setup() {\n  pinMode(13, OUTPUT);\n}\n\nvoid loop() {\n  // TODO: turn the LED on, wait, turn it off, wait\n}\n",
+    "lockedComponentIds": [],
+    "lockedWireIds": [],
+    "virtualInputs": []
+  },
+  "palette": [
+    { "type": "resistor", "label": "220Ω", "params": { "resistance": 220 } },
+    { "type": "resistor", "label": "1kΩ", "params": { "resistance": 1000 } },
+    { "type": "led", "label": "LED Red", "params": { "color": "red" }, "color": "#ff3333" }
+  ],
+  "completionCriteria": [
+    { "id": "c-resistor", "type": "component-present", "componentType": "resistor", "minCount": 1 },
+    { "id": "c-led", "type": "component-present", "componentType": "led", "minCount": 1 },
+    { "id": "c-blink", "type": "led-blinking", "minFreqHz": 0.3, "maxFreqHz": 3, "durationMs": 3000 },
+    { "id": "c-safe", "type": "fault-free" }
+  ],
+  "passCriteria": "all",
+  "hints": [
+    { "id": "h1", "afterSeconds": 90, "tier": 1, "content": "Have you wired the LED all the way to pin 13 and to GND?" },
+    { "id": "h2", "afterSeconds": 180, "tier": 2, "content": "Place a 220Ω resistor between pin 13 and the LED's anode (long leg), then wire the cathode (short leg) to GND." },
+    { "id": "h3", "afterSeconds": 360, "tier": 3, "content": "In loop(): digitalWrite(13, HIGH); delay(500); digitalWrite(13, LOW); delay(500);" }
+  ],
+  "narrative": {
+    "briefing": "Every robot needs a way to signal what it's doing. The simplest signal is a blinking light. Wire an LED to pin 13, write code to blink it, and you've built your first working circuit.",
+    "context": "Arduino pin 13 can only output 5V or 0V — never anything in between. An LED needs a resistor in series to limit current, or it burns out almost instantly.",
+    "successMessage": "Your LED is blinking! You just controlled real current with code."
+  },
+  "aiMentorConfig": { "assistanceLevel": "nudge", "neverReveal": ["c-blink"] }
+}

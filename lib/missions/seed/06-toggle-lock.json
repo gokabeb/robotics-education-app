@@ -1,0 +1,43 @@
+{
+  "id": "toggle-lock",
+  "title": "Toggle Lock",
+  "subtitle": "Each button press flips an LED between locked and unlocked.",
+  "difficulty": 3,
+  "ageRange": [10, 14],
+  "estimatedMinutes": 18,
+  "tags": ["digital-input", "button", "state", "serial"],
+  "layout": { "circuit": true, "codeEditor": true, "serialMonitor": true },
+  "initial": {
+    "circuit": { "nodes": [], "components": [] },
+    "code": "bool locked = true;\n\nvoid setup() {\n  pinMode(2, INPUT_PULLUP);\n  pinMode(13, OUTPUT);\n  Serial.begin(9600);\n}\n\nvoid loop() {\n  // TODO: on each new press, flip `locked` and print LOCKED/UNLOCKED,\n  // drive the LED to match the locked state\n}\n",
+    "lockedComponentIds": [],
+    "lockedWireIds": [],
+    "virtualInputs": [
+      { "id": "btn1", "label": "Push Button", "pin": 2 }
+    ]
+  },
+  "palette": [
+    { "type": "resistor", "label": "220Ω", "params": { "resistance": 220 } },
+    { "type": "led", "label": "LED Red", "params": { "color": "red" }, "color": "#ff3333" }
+  ],
+  "completionCriteria": [
+    { "id": "c-resistor", "type": "component-present", "componentType": "resistor", "minCount": 1 },
+    { "id": "c-led", "type": "component-present", "componentType": "led", "minCount": 1 },
+    { "id": "c-press", "type": "virtual-input-pressed", "inputId": "btn1", "minPresses": 2 },
+    { "id": "c-read", "type": "function-called", "functionName": "digitalRead" },
+    { "id": "c-serial", "type": "serial-output-contains", "substring": "LOCKED" },
+    { "id": "c-safe", "type": "fault-free" }
+  ],
+  "passCriteria": "all",
+  "hints": [
+    { "id": "h1", "afterSeconds": 150, "tier": 1, "content": "This is different from the button-controlled LED — the LED state should only change ON A PRESS, not stay tied to whether the button is currently held." },
+    { "id": "h2", "afterSeconds": 300, "tier": 2, "content": "Track the button's previous reading in a variable. Only flip `locked` when it changes from not-pressed to pressed." },
+    { "id": "h3", "afterSeconds": 540, "tier": 3, "content": "bool wasPressed = false; ... bool isPressed = digitalRead(2) == LOW; if (isPressed && !wasPressed) { locked = !locked; Serial.println(locked ? \"LOCKED\" : \"UNLOCKED\"); } wasPressed = isPressed; digitalWrite(13, locked ? LOW : HIGH);" }
+  ],
+  "narrative": {
+    "briefing": "A real lock doesn't unlock only while you're touching the key — it flips state once per press and holds that state. Build a toggle: each press flips between LOCKED and UNLOCKED.",
+    "context": "This requires remembering state between loop() iterations — the button's previous reading — so you can detect the moment of a press (the edge), not just whether it's currently held.",
+    "successMessage": "Locked, unlocked, locked again — your circuit remembers its state. That's the same pattern behind real keypad locks and toggle switches."
+  },
+  "aiMentorConfig": { "assistanceLevel": "nudge", "neverReveal": ["c-serial"] }
+}

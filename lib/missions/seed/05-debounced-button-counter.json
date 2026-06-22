@@ -1,0 +1,38 @@
+{
+  "id": "debounced-button-counter",
+  "title": "Debounced Button Counter",
+  "subtitle": "Count button presses without double-counting bounce.",
+  "difficulty": 3,
+  "ageRange": [10, 14],
+  "estimatedMinutes": 20,
+  "tags": ["digital-input", "button", "debounce", "serial"],
+  "layout": { "circuit": true, "codeEditor": true, "serialMonitor": true },
+  "initial": {
+    "circuit": { "nodes": [], "components": [] },
+    "code": "int count = 0;\nunsigned long lastPressMs = 0;\n\nvoid setup() {\n  pinMode(2, INPUT_PULLUP);\n  Serial.begin(9600);\n}\n\nvoid loop() {\n  // TODO: detect a press, debounce it with millis(), increment count,\n  // and Serial.println(\"Count: \" + String(count))\n}\n",
+    "lockedComponentIds": [],
+    "lockedWireIds": [],
+    "virtualInputs": [
+      { "id": "btn1", "label": "Push Button", "pin": 2, "simulateBounce": true }
+    ]
+  },
+  "palette": [],
+  "completionCriteria": [
+    { "id": "c-press", "type": "virtual-input-pressed", "inputId": "btn1", "minPresses": 3 },
+    { "id": "c-millis", "type": "function-called", "functionName": "millis" },
+    { "id": "c-serial", "type": "serial-output-matches", "pattern": "Count:\\s*\\d+" },
+    { "id": "c-safe", "type": "fault-free" }
+  ],
+  "passCriteria": "all",
+  "hints": [
+    { "id": "h1", "afterSeconds": 150, "tier": 1, "content": "Real buttons don't switch cleanly — they \"bounce\" and can register several presses in a few milliseconds. This button simulates that." },
+    { "id": "h2", "afterSeconds": 300, "tier": 2, "content": "Track the time of the last accepted press with millis(). Ignore new presses that happen within ~50ms of the last one." },
+    { "id": "h3", "afterSeconds": 540, "tier": 3, "content": "if (digitalRead(2) == LOW && millis() - lastPressMs > 50) { count++; lastPressMs = millis(); Serial.println(\"Count: \" + String(count)); }" }
+  ],
+  "narrative": {
+    "briefing": "Mechanical buttons physically bounce when pressed, sending several rapid on/off signals instead of one clean click. Build a counter that ignores the bounce and counts real presses.",
+    "context": "Debouncing is one of the first \"real world is messy\" lessons in embedded programming — the same pattern shows up reading sensors, encoders, and switches on every robot you'll ever build.",
+    "successMessage": "Your counter ignored the bounce and counted real presses — that's a debounce filter, and you'll use that trick constantly."
+  },
+  "aiMentorConfig": { "assistanceLevel": "nudge", "neverReveal": ["c-serial"] }
+}

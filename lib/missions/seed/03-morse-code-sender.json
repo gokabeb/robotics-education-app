@@ -1,0 +1,40 @@
+{
+  "id": "morse-code-sender",
+  "title": "Morse Code Sender",
+  "subtitle": "Blink \"SOS\" in Morse code and print it to Serial.",
+  "difficulty": 3,
+  "ageRange": [10, 14],
+  "estimatedMinutes": 20,
+  "tags": ["LED", "digital-output", "serial", "timing"],
+  "layout": { "circuit": true, "codeEditor": true, "serialMonitor": true },
+  "initial": {
+    "circuit": { "nodes": [], "components": [] },
+    "code": "void setup() {\n  pinMode(13, OUTPUT);\n  Serial.begin(9600);\n}\n\nvoid loop() {\n  // TODO: blink S-O-S (short-short-short, long-long-long, short-short-short)\n  // and Serial.println(\"SOS\") once per cycle\n}\n",
+    "lockedComponentIds": [],
+    "lockedWireIds": [],
+    "virtualInputs": []
+  },
+  "palette": [
+    { "type": "resistor", "label": "220Ω", "params": { "resistance": 220 } },
+    { "type": "led", "label": "LED Red", "params": { "color": "red" }, "color": "#ff3333" }
+  ],
+  "completionCriteria": [
+    { "id": "c-resistor", "type": "component-present", "componentType": "resistor", "minCount": 1 },
+    { "id": "c-led", "type": "component-present", "componentType": "led", "minCount": 1 },
+    { "id": "c-blink", "type": "led-blinking", "minFreqHz": 0.2, "maxFreqHz": 6, "durationMs": 2000 },
+    { "id": "c-serial", "type": "serial-output-contains", "substring": "SOS" },
+    { "id": "c-safe", "type": "fault-free" }
+  ],
+  "passCriteria": "all",
+  "hints": [
+    { "id": "h1", "afterSeconds": 150, "tier": 1, "content": "Morse \"S\" is three short blinks, \"O\" is three long blinks." },
+    { "id": "h2", "afterSeconds": 300, "tier": 2, "content": "Try a short blink = 200ms on, long blink = 600ms on, with a short gap between blinks." },
+    { "id": "h3", "afterSeconds": 540, "tier": 3, "content": "Write a blink(int ms) helper that does digitalWrite HIGH, delay(ms), digitalWrite LOW, delay(200) — call it 3x short, 3x long, 3x short, then Serial.println(\"SOS\")." }
+  ],
+  "narrative": {
+    "briefing": "Before radio voice transmission, ships sent emergency calls in Morse code — dots and dashes encoded as short and long signals. Recreate the most famous Morse message of all: SOS.",
+    "context": "Morse code is just timing: a \"dot\" is a short pulse, a \"dash\" is roughly three times as long. The same idea shows up everywhere in electronics, from PWM to data encoding.",
+    "successMessage": "S-O-S received! You just sent a real distress signal using nothing but timing."
+  },
+  "aiMentorConfig": { "assistanceLevel": "nudge", "neverReveal": ["c-blink", "c-serial"] }
+}
