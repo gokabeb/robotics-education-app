@@ -32,7 +32,7 @@
   "hints": [
     { "id": "h1", "afterSeconds": 120, "tier": 1, "content": "Each LED needs its own resistor and its own Arduino pin." },
     { "id": "h2", "afterSeconds": 240, "tier": 2, "content": "Wire pin 11 → resistor → red LED → GND, pin 12 → resistor → yellow LED → GND, pin 13 → resistor → green LED → GND." },
-    { "id": "h3", "afterSeconds": 420, "tier": 3, "content": "digitalWrite(11,HIGH); delay(2000); digitalWrite(11,LOW); digitalWrite(12,HIGH); delay(1000); digitalWrite(12,LOW); digitalWrite(13,HIGH); delay(2000); digitalWrite(13,LOW);" }
+    { "id": "h3", "afterSeconds": 420, "tier": 3, "content": "digitalWrite(11,HIGH); delay(2000); digitalWrite(11,LOW); digitalWrite(12,HIGH); delay(1500); digitalWrite(12,LOW); digitalWrite(13,HIGH); delay(2000); digitalWrite(13,LOW);" }
   ],
   "narrative": {
     "briefing": "Real traffic lights cycle through three colors on a timer. Wire three LEDs to three pins and sequence them: red, yellow, green, repeat.",

@@ -19,6 +19,7 @@ export class MissionRuntime {
   private virtualPressCounts = new Map<string, number>()       // inputId -> count
   private criterionMetSinceMs = new Map<string, number>()      // criterion id -> first-met timestamp
   private hintsShown = new Set<string>()
+  private latchedCriteria = new Set<string>()                  // led-lit criteria that have ever been satisfied
 
   constructor(mission: Mission, nowMs: number) {
     this.mission = mission
@@ -63,6 +64,10 @@ export class MissionRuntime {
   }
 
   private evaluateWithSustain(c: CompletionCriterion, s: MissionSimSnapshot): CriterionStatus {
+    if (this.latchedCriteria.has(c.id)) {
+      return { id: c.id, met: true, label: describeCriterion(c) }
+    }
+
     const instantMet = this.evaluateInstant(c, s)
     const durationMs = "durationMs" in c ? c.durationMs ?? 0 : 0
 
@@ -76,6 +81,10 @@ export class MissionRuntime {
     }
     const metSince = this.criterionMetSinceMs.get(c.id)!
     const sustained = s.nowMs - metSince >= durationMs
+
+    if (sustained && c.type === "led-lit") {
+      this.latchedCriteria.add(c.id)
+    }
 
     return { id: c.id, met: sustained, label: describeCriterion(c) }
   }

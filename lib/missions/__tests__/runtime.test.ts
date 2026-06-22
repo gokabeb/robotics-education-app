@@ -1,6 +1,7 @@
 // lib/missions/__tests__/runtime.test.ts
 import { describe, it, expect, beforeEach } from "vitest"
 import { MissionRuntime } from "../runtime"
+import { getMissionById } from "../seed"
 import type { Mission, MissionSimSnapshot } from "../types"
 
 function emptySnapshot(overrides: Partial<MissionSimSnapshot> = {}): MissionSimSnapshot {
@@ -95,6 +96,56 @@ describe("MissionRuntime — led-lit with sustained duration", () => {
     runtime.tick(snap(500, 0.0))   // drops out — resets sustain timer
     expect(runtime.tick(snap(800, 0.8)).criteria[0].met).toBe(false)  // only 300ms sustained
     expect(runtime.tick(snap(1600, 0.8)).criteria[0].met).toBe(true)  // 1100ms sustained
+  })
+})
+
+describe("MissionRuntime — traffic-light mission (sequential multi-LED led-lit)", () => {
+  it("latches each led-lit criterion once sustained, so the sequential hint sequence completes 'all'", () => {
+    const mission = getMissionById("traffic-light")!
+    const runtime = new MissionRuntime(mission, 0)
+
+    const netlist = {
+      nodes: [],
+      components: [
+        { id: "led-red", type: "led" as const, terminals: { anode: "P11", cathode: "GND" }, params: { color: "red" } },
+        { id: "led-yellow", type: "led" as const, terminals: { anode: "P12", cathode: "GND" }, params: { color: "yellow" } },
+        { id: "led-green", type: "led" as const, terminals: { anode: "P13", cathode: "GND" }, params: { color: "green" } },
+        { id: "r1", type: "resistor" as const, terminals: { a: "P11", b: "led-red" }, params: { resistance: 220 } },
+        { id: "r2", type: "resistor" as const, terminals: { a: "P12", b: "led-yellow" }, params: { resistance: 220 } },
+        { id: "r3", type: "resistor" as const, terminals: { a: "P13", b: "led-green" }, params: { resistance: 220 } },
+      ],
+    }
+
+    // Mirrors the (fixed) tier-3 hint: red on 0-2000ms, yellow on 2000-3500ms,
+    // green on 3500-5500ms — never more than one LED lit on the same tick.
+    const brightnessAt = (nowMs: number): Record<string, number> => {
+      if (nowMs < 2000) return { "led-red": 0.8, "led-yellow": 0, "led-green": 0 }
+      if (nowMs < 3500) return { "led-red": 0, "led-yellow": 0.8, "led-green": 0 }
+      return { "led-red": 0, "led-yellow": 0, "led-green": 0.8 }
+    }
+
+    let result
+    for (let t = 0; t <= 5500; t += 100) {
+      result = runtime.tick({
+        nowMs: t,
+        netlist,
+        brightnessMap: brightnessAt(t),
+        faults: [],
+        code: "",
+        serialBuffer: "",
+        newPinEvents: [],
+        newVirtualPresses: [],
+      })
+      // No single tick ever has all three LEDs lit simultaneously.
+      const litCount = Object.values(brightnessAt(t)).filter(b => b >= 0.3).length
+      expect(litCount).toBeLessThanOrEqual(1)
+    }
+
+    const byId = (id: string) => result!.criteria.find(c => c.id === id)
+    expect(byId("c-red")?.met).toBe(true)
+    expect(byId("c-yellow")?.met).toBe(true)
+    expect(byId("c-green")?.met).toBe(true)
+    expect(result!.complete).toBe(true)
   })
 })
 
