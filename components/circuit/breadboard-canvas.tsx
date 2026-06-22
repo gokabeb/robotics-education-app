@@ -2,11 +2,11 @@
 "use client"
 
 import { useRef, useEffect, useCallback, useState } from "react"
-import { renderBreadboard, CANVAS_WIDTH, CANVAS_HEIGHT, HOLE_PITCH, holeX, holeY } from "@/lib/circuit/breadboard/breadboard-renderer"
+import { renderBreadboard, CANVAS_WIDTH, CANVAS_HEIGHT, HOLE_PITCH, holeX, holeY, endpointXY, arduinoHoleXY } from "@/lib/circuit/breadboard/breadboard-renderer"
 import type { RenderState } from "@/lib/circuit/breadboard/breadboard-renderer"
 import { BreadboardState } from "@/lib/circuit/breadboard/breadboard-state"
-import type { HolePosition } from "@/lib/circuit/breadboard/breadboard-state"
-import { BB_COLS_LEFT, BB_COLS_RIGHT, BREADBOARD_ROWS } from "@/lib/circuit/breadboard/breadboard-layout"
+import type { HolePosition, WireEndpoint } from "@/lib/circuit/breadboard/breadboard-state"
+import { BB_COLS_LEFT, BB_COLS_RIGHT, BREADBOARD_ROWS, ARDUINO_HOLES } from "@/lib/circuit/breadboard/breadboard-layout"
 import { BB_OFFSET_X } from "@/lib/circuit/breadboard/breadboard-renderer"
 import type { BBColumn } from "@/lib/circuit/breadboard/breadboard-layout"
 import { cn } from "@/lib/utils"
@@ -51,6 +51,20 @@ function snapToHole(canvasX: number, canvasY: number): HolePosition | null {
   return null
 }
 
+/** Wire endpoints can land on a breadboard hole OR an Arduino pin hole. */
+function snapToWireEndpoint(canvasX: number, canvasY: number): WireEndpoint | null {
+  const hole = snapToHole(canvasX, canvasY)
+  if (hole) return { kind: "hole", row: hole.row, col: hole.col }
+
+  for (const [pinKey, arduinoHole] of ARDUINO_HOLES) {
+    const { x, y } = arduinoHoleXY(arduinoHole)
+    if (Math.hypot(canvasX - x, canvasY - y) <= HOLE_PITCH * 0.65) {
+      return { kind: "arduino", pinKey }
+    }
+  }
+  return null
+}
+
 let componentIdCounter = 1
 
 export function BreadboardCanvas({
@@ -63,7 +77,7 @@ export function BreadboardCanvas({
 }: BreadboardCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const [selectedId, setSelectedId] = useState<string | null>(null)
-  const [pendingWireFrom, setPendingWireFrom] = useState<HolePosition | null>(null)
+  const [pendingWireFrom, setPendingWireFrom] = useState<WireEndpoint | null>(null)
   const [hoveredNet, setHoveredNet] = useState<NodeId | null>(null)
 
   const redraw = useCallback(() => {
@@ -131,14 +145,14 @@ export function BreadboardCanvas({
         return
       }
 
-      const hole = snapToHole(cx, cy)
+      const wireEndpoint = snapToWireEndpoint(cx, cy)
 
       // Wire drawing mode
-      if (hole) {
+      if (wireEndpoint) {
         if (!pendingWireFrom) {
-          setPendingWireFrom(hole)
+          setPendingWireFrom(wireEndpoint)
         } else {
-          bbState.addWire(pendingWireFrom, hole)
+          bbState.addWire(pendingWireFrom, wireEndpoint)
           setPendingWireFrom(null)
           onNetlistChange()
           redraw()
@@ -166,9 +180,8 @@ export function BreadboardCanvas({
       // Check wire click for selection
       const wires = bbState.getWires()
       for (const wire of [...wires].reverse()) {
-        const x1 = holeX(wire.from.row), y1 = holeY(wire.from.col)
-        const x2 = holeX(wire.to.row), y2 = holeY(wire.to.col)
-        const midX = Math.min(x1, x2) + Math.abs(x2 - x1) / 2
+        const { x: x1, y: y1 } = endpointXY(wire.from)
+        const { x: x2, y: y2 } = endpointXY(wire.to)
         if (
           Math.abs(cy - y1) < 8 && cx >= Math.min(x1, x2) - 4 && cx <= Math.max(x1, x2) + 4
         ) {
@@ -181,7 +194,6 @@ export function BreadboardCanvas({
           setSelectedId(wire.id)
           return
         }
-        void midX
       }
 
       setSelectedId(null)

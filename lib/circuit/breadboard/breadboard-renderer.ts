@@ -6,7 +6,7 @@ import {
   ARDUINO_HOLES, ARDUINO_WIDTH, ARDUINO_HEIGHT, ARDUINO_HOLE_PITCH,
   holeNet, type BBColumn, type ArduinoHole
 } from "./breadboard-layout"
-import type { PlacedComponent, UserWire, HolePosition } from "./breadboard-state"
+import type { PlacedComponent, UserWire, WireEndpoint } from "./breadboard-state"
 import type { NodeId } from "../types"
 import { GND, VCC } from "../types"
 
@@ -48,6 +48,20 @@ export function arduinoHoleXY(hole: ArduinoHole): { x: number; y: number } {
   }
 }
 
+/** Canvas (x, y) for any wire endpoint — breadboard hole or Arduino pin. */
+export function endpointXY(e: WireEndpoint): { x: number; y: number } {
+  if (e.kind === "arduino") {
+    const hole = ARDUINO_HOLES.get(e.pinKey)
+    return hole ? arduinoHoleXY(hole) : { x: 0, y: 0 }
+  }
+  return { x: holeX(e.row), y: holeY(e.col) }
+}
+
+function netForEndpoint(e: WireEndpoint): NodeId {
+  if (e.kind === "arduino") return ARDUINO_HOLES.get(e.pinKey)?.nodeId ?? "FLOATING"
+  return holeNet(e.row, e.col)
+}
+
 const LED_COLORS: Record<string, string> = {
   red: "#ff3333", green: "#33ff66", blue: "#3399ff",
   white: "#ffffff", yellow: "#ffee33"
@@ -59,7 +73,7 @@ export interface RenderState {
   brightnessMap:   Record<string, number>
   hoveredNet:      NodeId | null
   netMap:          Map<string, NodeId>
-  pendingWireFrom: HolePosition | null
+  pendingWireFrom: WireEndpoint | null
   selectedId:      string | null
 }
 
@@ -157,10 +171,10 @@ function drawTieStrips(ctx: CanvasRenderingContext2D, state: RenderState): void 
 
 function drawWires(ctx: CanvasRenderingContext2D, state: RenderState): void {
   for (const wire of state.wires) {
-    const x1 = holeX(wire.from.row), y1 = holeY(wire.from.col)
-    const x2 = holeX(wire.to.row),   y2 = holeY(wire.to.col)
+    const { x: x1, y: y1 } = endpointXY(wire.from)
+    const { x: x2, y: y2 } = endpointXY(wire.to)
 
-    const fromNet = holeNet(wire.from.row, wire.from.col)
+    const fromNet = netForEndpoint(wire.from)
     const color = fromNet === GND ? "#4466ff" : fromNet === VCC ? "#ff4444" : "#44ddaa"
 
     ctx.beginPath()

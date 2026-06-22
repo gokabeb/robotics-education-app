@@ -2,7 +2,7 @@
 // Mutable state for the breadboard editor.
 // Placed components + wires → SerializedNetlist via union-find net merging.
 
-import { holeNet, BBColumn } from "./breadboard-layout"
+import { holeNet, ARDUINO_HOLES, BBColumn } from "./breadboard-layout"
 import type { SerializedNetlist, SerializedComponent, ComponentId, NodeId, ComponentParams } from "../types"
 import { GND, VCC } from "../types"
 
@@ -10,6 +10,10 @@ export interface HolePosition {
   row: number
   col: BBColumn
 }
+
+export type WireEndpoint =
+  | { kind: "hole"; row: number; col: BBColumn }
+  | { kind: "arduino"; pinKey: string }   // key into ARDUINO_HOLES, e.g. "D13", "GND_14"
 
 export interface PlacedComponent {
   id: ComponentId
@@ -21,8 +25,24 @@ export interface PlacedComponent {
 
 export interface UserWire {
   id: string
-  from: HolePosition
-  to: HolePosition
+  from: WireEndpoint
+  to: WireEndpoint
+}
+
+function netForEndpoint(e: WireEndpoint): NodeId {
+  if (e.kind === "arduino") {
+    return ARDUINO_HOLES.get(e.pinKey)?.nodeId ?? "FLOATING"
+  }
+  return holeNet(e.row, e.col)
+}
+
+// A net name is "named" (fixed, student-meaningful) if it isn't an internal
+// tie-strip label like "R12L". GND, VCC, and every Arduino pin nodeId
+// (D0-D13, A0-A5, AREF, VIN, V33) are named. Named nets always win as the
+// union-find root, so mission criteria can reference them by literal string
+// regardless of which physical strip a student wired them through.
+function isNamedNet(id: NodeId): boolean {
+  return !/^R\d+[LR]$/.test(id)
 }
 
 // ── Union-Find for net merging ───────────────────────────────────────────────
@@ -42,10 +62,10 @@ function makeUnionFind(nodes: string[]): { parent: Map<string, string>; find: (x
   function union(a: string, b: string): void {
     const ra = find(a), rb = find(b)
     if (ra === rb) return
+    const aNamed = isNamedNet(ra), bNamed = isNamedNet(rb)
+    if (bNamed && !aNamed) { parent.set(ra, rb); return }
+    if (aNamed && !bNamed) { parent.set(rb, ra); return }
     const rankA = rank.get(ra) ?? 0, rankB = rank.get(rb) ?? 0
-    // GND and VCC must always be their own root
-    if (rb === GND || rb === VCC) { parent.set(ra, rb); return }
-    if (ra === GND || ra === VCC) { parent.set(rb, ra); return }
     if (rankA >= rankB) { parent.set(rb, ra); if (rankA === rankB) rank.set(ra, rankA + 1) }
     else                { parent.set(ra, rb) }
   }
@@ -68,7 +88,7 @@ export class BreadboardState {
     this.components = this.components.filter(c => c.id !== id)
   }
 
-  addWire(from: HolePosition, to: HolePosition): string {
+  addWire(from: WireEndpoint, to: WireEndpoint): string {
     const id = `wire_${this.nextWireId++}`
     this.wires.push({ id, from, to })
     return id
@@ -88,16 +108,14 @@ export class BreadboardState {
       allBaseNets.add(holeNet(comp.terminal2.row, comp.terminal2.col))
     }
     for (const wire of this.wires) {
-      allBaseNets.add(holeNet(wire.from.row, wire.from.col))
-      allBaseNets.add(holeNet(wire.to.row, wire.to.col))
+      allBaseNets.add(netForEndpoint(wire.from))
+      allBaseNets.add(netForEndpoint(wire.to))
     }
 
     const uf = makeUnionFind([...allBaseNets])
 
     for (const wire of this.wires) {
-      const netFrom = holeNet(wire.from.row, wire.from.col)
-      const netTo   = holeNet(wire.to.row,   wire.to.col)
-      uf.union(netFrom, netTo)
+      uf.union(netForEndpoint(wire.from), netForEndpoint(wire.to))
     }
 
     const resolve = (pos: HolePosition): NodeId => uf.find(holeNet(pos.row, pos.col))
