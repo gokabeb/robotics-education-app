@@ -27,7 +27,7 @@ const MonacoEditor = dynamic(() => import("@monaco-editor/react"), {
   ),
 })
 
-type RunState = "idle" | "compiling" | "running" | "paused"
+export type RunState = "idle" | "compiling" | "running" | "paused"
 
 const SPEED_OPTIONS: { label: string; value: number }[] = [
   { label: "0.1×", value: 0.1 },
