@@ -50,20 +50,36 @@ export default function WorkspaceProjectPage() {
     if (!loaded) return
     let timeoutId: ReturnType<typeof setTimeout> | null = null
 
+    const sendPatch = () => {
+      fetch(`/api/workspace-projects/${params.projectId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(storeRef.current.toJSON()),
+      })
+    }
+
     const save = () => {
       if (timeoutId) clearTimeout(timeoutId)
       timeoutId = setTimeout(() => {
-        fetch(`/api/workspace-projects/${params.projectId}`, {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(storeRef.current.toJSON()),
-        })
+        timeoutId = null
+        sendPatch()
       }, AUTOSAVE_DEBOUNCE_MS)
     }
 
     const unsubscribe = storeRef.current.subscribe(save)
     return () => {
-      if (timeoutId) clearTimeout(timeoutId)
+      // If a debounced save is still pending when this effect tears down
+      // (unmount or dependency change), the timer would otherwise be
+      // cleared without ever sending the PATCH — silently dropping
+      // whatever edits happened in the last AUTOSAVE_DEBOUNCE_MS. Flush
+      // it immediately instead. The fetch is intentionally not awaited:
+      // cleanup functions can't be async, but the browser keeps the
+      // request in flight for this same-page SPA navigation.
+      if (timeoutId) {
+        clearTimeout(timeoutId)
+        timeoutId = null
+        sendPatch()
+      }
       unsubscribe()
     }
   }, [loaded, params.projectId])
