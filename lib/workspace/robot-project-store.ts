@@ -29,9 +29,10 @@ function hashContent(components: RobotProjectComponent[], code: WorkspaceCode): 
   // module-global counter, so two stores with identical components can have
   // different ids while representing the same content. Sort by a stable,
   // content-derived key so add-order never affects the hash either.
+  const sortKey = (c: Omit<RobotProjectComponent, "id">) => `${c.type}-${c.x}-${c.y}-${c.rotation}-${c.pin}-${c.name}`
   const sorted = [...components]
     .map(({ id, ...rest }) => rest)
-    .sort((a, b) => `${a.type}-${a.x}-${a.y}-${a.pin}`.localeCompare(`${b.type}-${b.x}-${b.y}-${b.pin}`))
+    .sort((a, b) => sortKey(a).localeCompare(sortKey(b)))
   const payload = JSON.stringify({ sorted, code })
   let hash = 0
   for (let i = 0; i < payload.length; i++) {

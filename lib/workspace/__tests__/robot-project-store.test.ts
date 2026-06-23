@@ -186,4 +186,42 @@ describe("RobotProjectStore.flash / isOutOfSync", () => {
 
     expect(snapA.hash).toBe(snapB.hash)
   })
+
+  it("produces the same hash regardless of insertion order, even when components tie on type/x/y/pin but differ in rotation", () => {
+    // Exhaust all valid digital pins first so the two LEDs under test both
+    // land on `pin: null` — a genuine tie on type/x/y/pin. They differ only
+    // in rotation (e.g. dropped at the same default coordinates, then rotated
+    // before being moved). The old sort key `${type}-${x}-${y}-${pin}` can't
+    // distinguish them, so a stable sort falls back to original array
+    // (insertion) order — meaning the same content set added in a different
+    // order produced a different hash. Broadening the sort key to include
+    // rotation (and name) fixes this.
+    const buildStore = (rotateFirst: boolean) => {
+      const store = new RobotProjectStore()
+      for (let i = 0; i < 18; i++) store.addComponent("led", i, i) // exhausts all 18 valid digital pins
+      if (rotateFirst) {
+        const first = store.addComponent("led", 5, 5)
+        store.rotateComponent(first.id, 0)
+        const second = store.addComponent("led", 5, 5)
+        store.rotateComponent(second.id, 90)
+      } else {
+        const second = store.addComponent("led", 5, 5)
+        store.rotateComponent(second.id, 90)
+        const first = store.addComponent("led", 5, 5)
+        store.rotateComponent(first.id, 0)
+      }
+      return store
+    }
+
+    const snapA = buildStore(true).flash()
+    const snapB = buildStore(false).flash()
+
+    // Sanity check: both tail components really do tie on type/x/y/pin.
+    const tailA = snapA.components.slice(-2)
+    const tailB = snapB.components.slice(-2)
+    expect(tailA.every((c) => c.pin === null)).toBe(true)
+    expect(tailB.every((c) => c.pin === null)).toBe(true)
+
+    expect(snapA.hash).toBe(snapB.hash)
+  })
 })
