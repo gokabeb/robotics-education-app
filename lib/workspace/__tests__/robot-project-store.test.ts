@@ -250,18 +250,42 @@ describe("RobotProjectStore toJSON/fromJSON", () => {
   })
 
   it("advances the global id counter past restored ids so new components don't collide", () => {
-    const store = new RobotProjectStore()
-    store.addComponent("led", 0, 0)
-    store.addComponent("motor", 10, 10)
-    store.addComponent("led", 20, 20)
-
-    const json = store.toJSON()
-    const restoredIds = json.components.map((c) => c.id)
+    // The id counter (`nextId`) is module-global state shared by every
+    // `RobotProjectStore` instance, so by the time this test runs other
+    // tests have already pushed it forward by some unknown amount. Building
+    // restored ids relative to a fresh store (e.g. "led-1", "motor-2") is
+    // not a reliable regression check: those ids are already far behind
+    // wherever `nextId` actually is, so a freshly generated id can never
+    // collide with them regardless of whether `fromJSON` advances the
+    // counter. To make the test deterministic, construct a `fromJSON`
+    // payload whose component ids are numbered far ahead of any realistic
+    // `nextId` value, then assert the next generated id lands strictly past
+    // the max restored numeric suffix (and therefore can't collide with it).
+    // Without the counter-advance logic in `fromJSON`, the next id would
+    // resume from wherever `nextId` was left (a small number) and collide
+    // with one of these restored high-numbered ids.
+    const FAR_AHEAD = 1_000_000
+    const restoredIds = [`led-${FAR_AHEAD}`, `motor-${FAR_AHEAD + 1}`, `led-${FAR_AHEAD + 2}`]
+    const json = {
+      components: restoredIds.map((id, i) => ({
+        id,
+        type: (i === 1 ? "motor" : "led") as const,
+        name: i === 1 ? "Motor" : "LED",
+        x: i * 10,
+        y: i * 10,
+        rotation: 0,
+        pin: null,
+      })),
+      code: { source: "blocks" as const, blocklyXml: null, generatedCode: "" },
+      flashed: null,
+    }
 
     const restored = RobotProjectStore.fromJSON(json)
     const added = restored.addComponent("led", 30, 30)
 
+    const addedSuffix = Number(/-(\d+)$/.exec(added.id)?.[1])
     expect(restoredIds).not.toContain(added.id)
+    expect(addedSuffix).toBeGreaterThan(FAR_AHEAD + 2)
     expect(restored.getComponents().map((c) => c.id)).toEqual([...restoredIds, added.id])
   })
 
