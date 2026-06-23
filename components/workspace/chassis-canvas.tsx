@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "
 import { flushSync } from "react-dom"
 import type { RobotProjectComponent, RobotProjectStore } from "@/lib/workspace/robot-project-store"
 import { WORKSPACE_COMPONENT_CATALOG, getComponentDef, type WorkspaceComponentType } from "@/lib/workspace/component-types"
-import type { PinInfo } from "@/lib/workspace/pin-constraints"
+import { getAllPins, type PinInfo } from "@/lib/workspace/pin-constraints"
 
 export function ChassisCanvas({ store }: { store: RobotProjectStore }) {
   // store.getComponents() returns the store's live internal array, mutated
@@ -46,11 +46,23 @@ export function ChassisCanvas({ store }: { store: RobotProjectStore }) {
   const handleDrop = useCallback(
     (e: React.DragEvent) => {
       e.preventDefault()
-      const type = e.dataTransfer.getData("text/workspace-component-type") as WorkspaceComponentType
-      if (!type) return
+      const movedId = e.dataTransfer.getData("text/workspace-component-id")
       const rect = canvasRef.current?.getBoundingClientRect()
       const x = e.clientX - (rect?.left ?? 0)
       const y = e.clientY - (rect?.top ?? 0)
+
+      if (movedId) {
+        // Dragging an existing placed component: offset by where inside the
+        // element the drag started so it doesn't jump to align its top-left
+        // corner with the cursor.
+        const offsetX = Number(e.dataTransfer.getData("text/workspace-drag-offset-x") || "0")
+        const offsetY = Number(e.dataTransfer.getData("text/workspace-drag-offset-y") || "0")
+        store.moveComponent(movedId, x - offsetX, y - offsetY)
+        return
+      }
+
+      const type = e.dataTransfer.getData("text/workspace-component-type") as WorkspaceComponentType
+      if (!type) return
       store.addComponent(type, x, y)
     },
     [store]
@@ -83,15 +95,24 @@ export function ChassisCanvas({ store }: { store: RobotProjectStore }) {
           const def = getComponentDef(component.type)
           const freePins: PinInfo[] = store.getFreePinsForComponent(component.id)
           const isOpen = openPinPickerId === component.id
+          const pinInfo = component.pin === null ? null : getAllPins().find((p) => p.digitalPin === component.pin)
           return (
             <div
               key={component.id}
               data-testid={`component-${component.id}`}
+              draggable
+              onDragStart={(e) => {
+                e.stopPropagation()
+                const rect = e.currentTarget.getBoundingClientRect()
+                e.dataTransfer.setData("text/workspace-component-id", component.id)
+                e.dataTransfer.setData("text/workspace-drag-offset-x", String(e.clientX - rect.left))
+                e.dataTransfer.setData("text/workspace-drag-offset-y", String(e.clientY - rect.top))
+              }}
               onClick={(e) => {
                 e.stopPropagation()
                 setSelectedId(component.id)
               }}
-              className="absolute select-none"
+              className="absolute select-none cursor-grab"
               style={{
                 left: component.x,
                 top: component.y,
@@ -111,7 +132,7 @@ export function ChassisCanvas({ store }: { store: RobotProjectStore }) {
                 }}
                 className="absolute -top-2 -right-2 rounded bg-background px-1 text-[10px] border border-border"
               >
-                {component.pin === null ? "no pin" : `D${component.pin}`}
+                {pinInfo ? pinInfo.label : "no pin"}
               </button>
               {isOpen && (
                 <select
