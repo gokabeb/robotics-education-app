@@ -124,3 +124,66 @@ describe("RobotProjectStore.subscribe", () => {
     expect(listener).not.toHaveBeenCalled()
   })
 })
+
+describe("RobotProjectStore.flash / isOutOfSync", () => {
+  it("has no flashed snapshot and is not out of sync before any flash", () => {
+    const store = new RobotProjectStore()
+    expect(store.getFlashed()).toBeNull()
+    expect(store.isOutOfSync()).toBe(false)
+  })
+
+  it("flash() captures the current components and code", () => {
+    const store = new RobotProjectStore()
+    store.addComponent("led", 0, 0)
+    store.setManualCode("void loop() {}")
+    const snapshot = store.flash()
+    expect(snapshot.components).toHaveLength(1)
+    expect(snapshot.code.generatedCode).toBe("void loop() {}")
+    expect(store.getFlashed()).toEqual(snapshot)
+  })
+
+  it("is not out of sync immediately after flashing", () => {
+    const store = new RobotProjectStore()
+    store.addComponent("led", 0, 0)
+    store.flash()
+    expect(store.isOutOfSync()).toBe(false)
+  })
+
+  it("is out of sync after a component is added post-flash", () => {
+    const store = new RobotProjectStore()
+    store.addComponent("led", 0, 0)
+    store.flash()
+    store.addComponent("motor", 10, 10)
+    expect(store.isOutOfSync()).toBe(true)
+  })
+
+  it("is out of sync after code changes post-flash", () => {
+    const store = new RobotProjectStore()
+    store.setManualCode("void loop() {}")
+    store.flash()
+    store.setManualCode("void loop() { delay(1); }")
+    expect(store.isOutOfSync()).toBe(true)
+  })
+
+  it("re-flashing clears the out-of-sync state", () => {
+    const store = new RobotProjectStore()
+    store.addComponent("led", 0, 0)
+    store.flash()
+    store.addComponent("motor", 10, 10)
+    expect(store.isOutOfSync()).toBe(true)
+    store.flash()
+    expect(store.isOutOfSync()).toBe(false)
+  })
+
+  it("produces the same hash for the same content flashed twice", () => {
+    const storeA = new RobotProjectStore()
+    storeA.addComponent("led", 5, 5)
+    const snapA = storeA.flash()
+
+    const storeB = new RobotProjectStore()
+    storeB.addComponent("led", 5, 5)
+    const snapB = storeB.flash()
+
+    expect(snapA.hash).toBe(snapB.hash)
+  })
+})

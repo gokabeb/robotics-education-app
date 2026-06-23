@@ -17,6 +17,29 @@ export interface WorkspaceCode {
   generatedCode: string
 }
 
+export interface WorkspaceSnapshot {
+  components: RobotProjectComponent[]
+  code: WorkspaceCode
+  hash: string
+  flashedAt: number
+}
+
+function hashContent(components: RobotProjectComponent[], code: WorkspaceCode): string {
+  // Hash content only, not the auto-generated `id` field: ids come from a
+  // module-global counter, so two stores with identical components can have
+  // different ids while representing the same content. Sort by a stable,
+  // content-derived key so add-order never affects the hash either.
+  const sorted = [...components]
+    .map(({ id, ...rest }) => rest)
+    .sort((a, b) => `${a.type}-${a.x}-${a.y}-${a.pin}`.localeCompare(`${b.type}-${b.x}-${b.y}-${b.pin}`))
+  const payload = JSON.stringify({ sorted, code })
+  let hash = 0
+  for (let i = 0; i < payload.length; i++) {
+    hash = (hash * 31 + payload.charCodeAt(i)) | 0
+  }
+  return hash.toString(16)
+}
+
 let nextId = 0
 function generateId(prefix: string): string {
   nextId += 1
@@ -113,5 +136,28 @@ export class RobotProjectStore {
   setManualCode(code: string): void {
     this.code = { ...this.code, source: "text", generatedCode: code }
     this.notify()
+  }
+
+  private flashed: WorkspaceSnapshot | null = null
+
+  flash(): WorkspaceSnapshot {
+    const snapshot: WorkspaceSnapshot = {
+      components: this.components.map((c) => ({ ...c })),
+      code: { ...this.code },
+      hash: hashContent(this.components, this.code),
+      flashedAt: Date.now(),
+    }
+    this.flashed = snapshot
+    this.notify()
+    return snapshot
+  }
+
+  getFlashed(): WorkspaceSnapshot | null {
+    return this.flashed
+  }
+
+  isOutOfSync(): boolean {
+    if (!this.flashed) return false
+    return hashContent(this.components, this.code) !== this.flashed.hash
   }
 }
