@@ -161,4 +161,16 @@ export class RobotProjectStore {
     if (!this.flashed) return false
     return hashContent(this.components, this.code) !== this.flashed.hash
   }
+
+  toJSON(): { components: RobotProjectComponent[]; code: WorkspaceCode; flashed: WorkspaceSnapshot | null } {
+    return { components: this.components, code: this.code, flashed: this.flashed }
+  }
+
+  static fromJSON(data: { components: RobotProjectComponent[]; code: WorkspaceCode; flashed: WorkspaceSnapshot | null }): RobotProjectStore {
+    const store = new RobotProjectStore()
+    store.components = data.components
+    store.code = data.code
+    store.flashed = data.flashed
+    return store
+  }
 }

@@ -225,3 +225,27 @@ describe("RobotProjectStore.flash / isOutOfSync", () => {
     expect(snapA.hash).toBe(snapB.hash)
   })
 })
+
+describe("RobotProjectStore toJSON/fromJSON", () => {
+  it("round-trips components, code, and flashed snapshot", () => {
+    const store = new RobotProjectStore()
+    store.addComponent("led", 0, 0)
+    store.setBlocklyXml("<xml/>", "void loop() {}")
+    store.flash()
+
+    const json = store.toJSON()
+    const restored = RobotProjectStore.fromJSON(json)
+
+    expect(restored.getComponents()).toEqual(store.getComponents())
+    expect(restored.getCode()).toEqual(store.getCode())
+    expect(restored.getFlashed()).toEqual(store.getFlashed())
+  })
+
+  it("round-trips an empty store with no flashed snapshot", () => {
+    const store = new RobotProjectStore()
+    const restored = RobotProjectStore.fromJSON(store.toJSON())
+
+    expect(restored.getComponents()).toEqual([])
+    expect(restored.getFlashed()).toBeNull()
+  })
+})
