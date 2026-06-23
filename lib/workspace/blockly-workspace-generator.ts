@@ -4,8 +4,6 @@ import type { RobotProjectComponent } from "./robot-project-store"
 import type { RobotProjectStore } from "./robot-project-store"
 
 const workspaceGenerator = new Blockly.Generator("WorkspaceArduino")
-workspaceGenerator.ORDER_ATOMIC = Order.ATOMIC
-workspaceGenerator.ORDER_NONE = Order.NONE
 workspaceGenerator.scrub_ = function (block, code, thisOnly) {
   const nextBlock = block.nextConnection && block.nextConnection.targetBlock()
   if (nextBlock && !thisOnly) return code + workspaceGenerator.blockToCode(nextBlock)

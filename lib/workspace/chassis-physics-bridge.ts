@@ -1,11 +1,5 @@
 import type { RobotProjectComponent } from "./robot-project-store"
-
-export interface PinChangePayload {
-  pin: number
-  high: boolean
-  isPWM: boolean
-  dutyCycle: number
-}
+import type { PinChangePayload } from "../avr/gpio-bridge"
 
 export interface ChassisPhysicsBridgeOptions {
   components: RobotProjectComponent[]
