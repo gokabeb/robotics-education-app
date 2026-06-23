@@ -22,6 +22,8 @@ export function WorkspaceSimulatorView({ store }: { store: RobotProjectStore }) 
 
   const [componentState, setComponentState] = useState<Record<string, boolean>>({})
   const [running, setRunning] = useState(false)
+  const [compileError, setCompileError] = useState<string | null>(null)
+  const [runtimeError, setRuntimeError] = useState<string | null>(null)
   const avrWorkerRef = useRef<Worker | null>(null)
   const flashedRef = useRef<WorkspaceSnapshot | null>(null)
 
@@ -30,6 +32,8 @@ export function WorkspaceSimulatorView({ store }: { store: RobotProjectStore }) 
     flashedRef.current = flashed
     setComponentState({})
     setRunning(false)
+    setCompileError(null)
+    setRuntimeError(null)
 
     const avrWorker = new Worker(new URL("@/workers/avr-worker.ts", import.meta.url))
     avrWorkerRef.current = avrWorker
@@ -42,6 +46,10 @@ export function WorkspaceSimulatorView({ store }: { store: RobotProjectStore }) 
     const gpioBridge = new GPIOBridge({
       avrWorker,
       onPinChange: (payload) => bridge.handlePinChange(payload),
+      onAVRError: (message) => {
+        setRuntimeError(message)
+        setRunning(false)
+      },
       onAVRStopped: () => setRunning(false),
     })
 
@@ -60,12 +68,18 @@ export function WorkspaceSimulatorView({ store }: { store: RobotProjectStore }) 
       }
     }
 
-    compileSketch({ code: flashed.code.generatedCode, board: "arduino-uno" }).then((result) => {
-      if (result.success) {
-        avrWorker.postMessage({ type: "load", hex: result.hex, board: "arduino-uno" })
-        avrWorker.postMessage({ type: "run" })
-      }
-    })
+    compileSketch({ code: flashed.code.generatedCode, board: "arduino-uno" })
+      .then((result) => {
+        if (result.success) {
+          avrWorker.postMessage({ type: "load", hex: result.hex, board: "arduino-uno" })
+          avrWorker.postMessage({ type: "run" })
+        } else {
+          setCompileError(result.errors.map((e) => e.message).join("\n") || "Compile failed")
+        }
+      })
+      .catch((err: unknown) => {
+        setCompileError(err instanceof Error ? err.message : "Compile failed")
+      })
 
     return () => {
       avrWorker.terminate()
@@ -91,6 +105,16 @@ export function WorkspaceSimulatorView({ store }: { store: RobotProjectStore }) 
   return (
     <div className="flex h-full flex-col gap-2 p-4">
       <div className="text-xs text-muted-foreground">{running ? "Running" : "Stopped"}</div>
+      {compileError && (
+        <div data-testid="sim-compile-error" className="rounded border border-destructive/40 bg-destructive/10 p-2 text-xs text-destructive">
+          Compile error: {compileError}
+        </div>
+      )}
+      {runtimeError && (
+        <div data-testid="sim-runtime-error" className="rounded border border-destructive/40 bg-destructive/10 p-2 text-xs text-destructive">
+          Runtime error: {runtimeError}
+        </div>
+      )}
       <div className="flex flex-wrap gap-3">
         {flashedRef.current?.components.map((component) => {
           const def = getComponentDef(component.type)
