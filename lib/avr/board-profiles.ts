@@ -31,7 +31,7 @@ export const BOARD_PROFILES: Record<BoardId, BoardProfile> = {
 }
 
 // ATmega328P pin mapping: digital pin number → port/bit
-const UNO_PIN_MAP: PinMapping[] = [
+export const UNO_PIN_MAP: PinMapping[] = [
   { digitalPin: 0,  port: "D", bit: 0, isPWMCapable: false },
   { digitalPin: 1,  port: "D", bit: 1, isPWMCapable: false },
   { digitalPin: 2,  port: "D", bit: 2, isPWMCapable: false },
