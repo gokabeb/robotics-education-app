@@ -163,7 +163,17 @@ export class RobotProjectStore {
   }
 
   toJSON(): { components: RobotProjectComponent[]; code: WorkspaceCode; flashed: WorkspaceSnapshot | null } {
-    return { components: this.components, code: this.code, flashed: this.flashed }
+    return {
+      components: this.components.map((c) => ({ ...c })),
+      code: { ...this.code },
+      flashed: this.flashed
+        ? {
+            ...this.flashed,
+            components: this.flashed.components.map((c) => ({ ...c })),
+            code: { ...this.flashed.code },
+          }
+        : null,
+    }
   }
 
   static fromJSON(data: { components: RobotProjectComponent[]; code: WorkspaceCode; flashed: WorkspaceSnapshot | null }): RobotProjectStore {
@@ -171,6 +181,18 @@ export class RobotProjectStore {
     store.components = data.components
     store.code = data.code
     store.flashed = data.flashed
+
+    // ids come from a single module-global counter (see `generateId` above),
+    // shared across all component types. After restoring components with
+    // their original ids, advance the counter past the max numeric suffix in
+    // use so subsequently generated ids can't collide with restored ones.
+    let maxRestoredId = 0
+    for (const component of data.components) {
+      const match = /-(\d+)$/.exec(component.id)
+      if (match) maxRestoredId = Math.max(maxRestoredId, Number(match[1]))
+    }
+    nextId = Math.max(nextId, maxRestoredId)
+
     return store
   }
 }

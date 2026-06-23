@@ -248,4 +248,33 @@ describe("RobotProjectStore toJSON/fromJSON", () => {
     expect(restored.getComponents()).toEqual([])
     expect(restored.getFlashed()).toBeNull()
   })
+
+  it("advances the global id counter past restored ids so new components don't collide", () => {
+    const store = new RobotProjectStore()
+    store.addComponent("led", 0, 0)
+    store.addComponent("motor", 10, 10)
+    store.addComponent("led", 20, 20)
+
+    const json = store.toJSON()
+    const restoredIds = json.components.map((c) => c.id)
+
+    const restored = RobotProjectStore.fromJSON(json)
+    const added = restored.addComponent("led", 30, 30)
+
+    expect(restoredIds).not.toContain(added.id)
+    expect(restored.getComponents().map((c) => c.id)).toEqual([...restoredIds, added.id])
+  })
+
+  it("toJSON returns a deep copy: mutating the store afterward doesn't affect the previously returned JSON", () => {
+    const store = new RobotProjectStore()
+    const led = store.addComponent("led", 0, 0)
+    const json = store.toJSON()
+
+    store.moveComponent(led.id, 999, 999)
+    store.addComponent("motor", 5, 5)
+
+    expect(json.components).toHaveLength(1)
+    expect(json.components[0].x).toBe(0)
+    expect(json.components[0].y).toBe(0)
+  })
 })
