@@ -150,6 +150,7 @@ export function WorkspaceSimulatorView({ store }: { store: RobotProjectStore }) 
   const [compileError, setCompileError] = useState<string | null>(null)
   const [runtimeError, setRuntimeError] = useState<string | null>(null)
   const [selectedArenaId, setSelectedArenaId] = useState("line-follow")
+  const [physicsLoading, setPhysicsLoading] = useState(false)
 
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const avrWorkerRef = useRef<Worker | null>(null)
@@ -242,8 +243,10 @@ export function WorkspaceSimulatorView({ store }: { store: RobotProjectStore }) 
     }
 
     // Initialise Rapier world asynchronously, then compile + run
+    setPhysicsLoading(true)
     createPhysicsWorld()
       .then((world) => {
+        setPhysicsLoading(false)
         addArenaBodies(world, selectedArena.id)
         const robot = new VirtualRobot(world, selectedArena.robotStartX, selectedArena.robotStartY)
         const sensors = new SensorSimulation(world, robot, selectedArena, gpioBridge, sensorPins)
@@ -316,6 +319,9 @@ export function WorkspaceSimulatorView({ store }: { store: RobotProjectStore }) 
         <div data-testid="sim-runtime-error" className="rounded border border-destructive/40 bg-destructive/10 p-2 text-xs text-destructive">
           Runtime error: {runtimeError}
         </div>
+      )}
+      {physicsLoading && (
+        <div className="text-xs text-muted-foreground">Loading simulator…</div>
       )}
       <canvas
         ref={canvasRef}
