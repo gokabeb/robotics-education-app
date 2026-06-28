@@ -17,11 +17,10 @@ const DIST_OFFSET = 35
 
 // Line sensor lateral offsets in robot-local space (pixels)
 // left, center, right — all at forward=0 (robot centroid row)
-const LINE_OFFSETS = [-15, 0, 15] as const
 
-// Physical placement note: sensors sit ~20px behind front edge.
-// In simulation geometry we treat them as lying on the centroid row (forward=0).
-const _LINE_FORWARD_PHYSICAL = -20 // kept for documentation only
+// Physical placement note: line sensors sit ~20px behind the front edge.
+// In simulation we treat them as lying on the centroid row (forward=0).
+const LINE_OFFSETS = [-15, 0, 15] as const
 
 const MAX_DIST_PX = 400
 
@@ -111,6 +110,3 @@ export class SensorSimulation {
     this.bridge.setDigitalInput(this.pins.bumpPin, !started)
   }
 }
-
-// Suppress unused-variable warning for the physical placement constant
-void _LINE_FORWARD_PHYSICAL
