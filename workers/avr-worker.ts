@@ -19,6 +19,31 @@ import {
 } from "avr8js"
 import type { AVRCommand, AVREvent } from "../lib/avr/types"
 
+// ── PWM detection ─────────────────────────────────────────────────────────────
+// COMnx bits in TCCRnA: if ≠ 0b00, pin is connected to timer output (analogWrite active).
+// ocrAddr: CPU data address of OCR register (duty cycle, 0–255)
+// tccrAddr: CPU data address of TCCRnA
+// comShift: bit position of the COMnx1 bit pair within TCCRnA
+
+interface PwmPinDef { ocrAddr: number; tccrAddr: number; comShift: number }
+
+const PWM_PIN_MAP: Record<number, PwmPinDef> = {
+  3:  { ocrAddr: 0xB4, tccrAddr: 0xB0, comShift: 4 }, // Timer2B OCR2B, TCCR2A
+  5:  { ocrAddr: 0x48, tccrAddr: 0x44, comShift: 4 }, // Timer0B OCR0B, TCCR0A
+  6:  { ocrAddr: 0x47, tccrAddr: 0x44, comShift: 6 }, // Timer0A OCR0A, TCCR0A
+  9:  { ocrAddr: 0x88, tccrAddr: 0x80, comShift: 6 }, // Timer1A OCR1AL, TCCR1A
+  10: { ocrAddr: 0x8A, tccrAddr: 0x80, comShift: 4 }, // Timer1B OCR1BL, TCCR1A
+  11: { ocrAddr: 0xB3, tccrAddr: 0xB0, comShift: 6 }, // Timer2A OCR2A, TCCR2A
+}
+
+function readPWMDutyCycle(pin: number, high: boolean): { isPWM: boolean; dutyCycle: number } {
+  const cfg = PWM_PIN_MAP[pin]
+  if (!cfg || !cpu) return { isPWM: false, dutyCycle: high ? 255 : 0 }
+  const comBits = (cpu.data[cfg.tccrAddr] >> cfg.comShift) & 0x03
+  if (comBits === 0) return { isPWM: false, dutyCycle: high ? 255 : 0 }
+  return { isPWM: true, dutyCycle: cpu.data[cfg.ocrAddr] }
+}
+
 // ── Constants ──────────────────────────────────────────────────────────────
 
 const FREQ_HZ = 16_000_000 // ATmega328P @ 16 MHz
@@ -73,14 +98,14 @@ function attachPinListeners() {
 
       if (prevPinHigh[pinNum] !== high) {
         prevPinHigh[pinNum] = high
-        // Phase 1: isPWM=false, dutyCycle derived from high/low.
-        // Phase 2 will derive real duty cycle from timer registers.
+        const { isPWM, dutyCycle } = readPWMDutyCycle(pinNum, high)
         postEvent({
           type: "pinChange",
           pin: pinNum,
           high,
-          isPWM: false,
-          dutyCycle: high ? 255 : 0,
+          isPWM,
+          dutyCycle,
+          cycles: cpu?.cycles ?? 0,
         })
       }
     })
