@@ -24,13 +24,14 @@ export class VirtualRobot {
   private rightDuty = 0
   private servoAngleDeg = 90
 
-  constructor(world: RAPIER.World, x: number, y: number) {
+  constructor(world: RAPIER.World, x: number, y: number, startAngleDeg?: number) {
     this.world = world
     const bodyDesc = RAPIER.RigidBodyDesc.dynamic()
       .setTranslation(x, y)
       .setLinearDamping(8)
       .setAngularDamping(5)
     this.body = world.createRigidBody(bodyDesc)
+    this.body.setRotation(startAngleDeg ?? 0, true)
     world.createCollider(
       RAPIER.ColliderDesc.cuboid(HALF_W, HALF_H)
         .setFriction(0.8)

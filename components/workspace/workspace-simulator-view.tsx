@@ -18,11 +18,44 @@ const CANVAS_H = 600
 
 function deriveSensorPins(snapshot: WorkspaceSnapshot): SensorPinConfig {
   const sensors = snapshot.components.filter((c) => c.type === "sensor")
+  const count = sensors.length
+
+  // Assign by sensor count to match real build patterns:
+  //   1 sensor  → distance only (e.g. obstacle-avoider)
+  //   3 sensors → all line sensors left/center/right (standard line-follower)
+  //   4 sensors → distance + 3 line sensors
+  if (count === 1) {
+    return {
+      distanceSensorPin:   sensors[0].pin,
+      lineSensorLeftPin:   null,
+      lineSensorCenterPin: null,
+      lineSensorRightPin:  null,
+      bumpPin: null,
+    }
+  }
+  if (count === 3) {
+    return {
+      distanceSensorPin:   null,
+      lineSensorLeftPin:   sensors[0].pin,
+      lineSensorCenterPin: sensors[1].pin,
+      lineSensorRightPin:  sensors[2].pin,
+      bumpPin: null,
+    }
+  }
+  if (count === 4) {
+    return {
+      distanceSensorPin:   sensors[0].pin,
+      lineSensorLeftPin:   sensors[1].pin,
+      lineSensorCenterPin: sensors[2].pin,
+      lineSensorRightPin:  sensors[3].pin,
+      bumpPin: null,
+    }
+  }
   return {
-    distanceSensorPin:    sensors[0]?.pin ?? null,
-    lineSensorLeftPin:    sensors[1]?.pin ?? null,
-    lineSensorCenterPin:  sensors[2]?.pin ?? null,
-    lineSensorRightPin:   sensors[3]?.pin ?? null,
+    distanceSensorPin:   null,
+    lineSensorLeftPin:   null,
+    lineSensorCenterPin: null,
+    lineSensorRightPin:  null,
     bumpPin: null,
   }
 }
@@ -191,7 +224,7 @@ export function WorkspaceSimulatorView({ store }: { store: RobotProjectStore }) 
 
     animFrameRef.current = requestAnimationFrame(loop)
     return () => cancelAnimationFrame(animFrameRef.current)
-  }, [selectedArenaId])
+  }, [selectedArenaId, flashed?.hash])
 
   // AVR + Rapier bootstrap — re-runs when the flashed snapshot hash changes
   useEffect(() => {
@@ -243,12 +276,14 @@ export function WorkspaceSimulatorView({ store }: { store: RobotProjectStore }) 
     }
 
     // Initialise Rapier world asynchronously, then compile + run
+    let cancelled = false
     setPhysicsLoading(true)
     createPhysicsWorld()
       .then((world) => {
+        if (cancelled) { world.free(); return }
         setPhysicsLoading(false)
         addArenaBodies(world, selectedArena.id)
-        const robot = new VirtualRobot(world, selectedArena.robotStartX, selectedArena.robotStartY)
+        const robot = new VirtualRobot(world, selectedArena.robotStartX, selectedArena.robotStartY, selectedArena.robotStartAngle)
         const sensors = new SensorSimulation(world, robot, selectedArena, gpioBridge, sensorPins)
         rapierRef.current = { world, robot, sensors }
 
@@ -268,6 +303,7 @@ export function WorkspaceSimulatorView({ store }: { store: RobotProjectStore }) 
       })
 
     return () => {
+      cancelled = true
       avrWorker.terminate()
       avrWorkerRef.current = null
       if (rapierRef.current) {
