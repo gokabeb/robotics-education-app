@@ -1,75 +1,258 @@
 "use client"
 
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react"
+import RAPIER from "@dimforge/rapier2d-compat"
 import type { RobotProjectStore, WorkspaceSnapshot } from "@/lib/workspace/robot-project-store"
 import { ChassisPhysicsBridge } from "@/lib/workspace/chassis-physics-bridge"
 import { GPIOBridge } from "@/lib/avr/gpio-bridge"
 import { compileSketch } from "@/lib/avr/compiler"
+import { createPhysicsWorld, addArenaBodies } from "@/lib/simulator/rapier-physics"
+import { VirtualRobot } from "@/lib/simulator/rapier-robot"
+import { SensorSimulation, type SensorPinConfig } from "@/lib/simulator/sensor-simulation"
+import { ARENAS, type ArenaConfig } from "@/lib/simulator/arena"
 import type { AVREvent } from "@/lib/avr/types"
 import { getComponentDef } from "@/lib/workspace/component-types"
 
+const CANVAS_W = 800
+const CANVAS_H = 600
+
+function deriveSensorPins(snapshot: WorkspaceSnapshot): SensorPinConfig {
+  const sensors = snapshot.components.filter((c) => c.type === "sensor")
+  return {
+    distanceSensorPin:    sensors[0]?.pin ?? null,
+    lineSensorLeftPin:    sensors[1]?.pin ?? null,
+    lineSensorCenterPin:  sensors[2]?.pin ?? null,
+    lineSensorRightPin:   sensors[3]?.pin ?? null,
+    bumpPin: null,
+  }
+}
+
+function drawArena(ctx: CanvasRenderingContext2D, arena: ArenaConfig): void {
+  ctx.fillStyle = "#f8f8f8"
+  ctx.fillRect(0, 0, CANVAS_W, CANVAS_H)
+
+  // Arena border
+  ctx.strokeStyle = "#333"
+  ctx.lineWidth = 2
+  ctx.strokeRect(1, 1, CANVAS_W - 2, CANVAS_H - 2)
+
+  // Line track
+  if (arena.lineTrack) {
+    ctx.strokeStyle = "#111"
+    ctx.lineWidth = 20
+    ctx.lineCap = "round"
+    ctx.lineJoin = "round"
+    ctx.beginPath()
+    for (const seg of arena.lineTrack) {
+      ctx.moveTo(seg.x1, seg.y1)
+      ctx.lineTo(seg.x2, seg.y2)
+    }
+    ctx.stroke()
+  }
+
+  // Goals
+  if (arena.goals) {
+    for (const goal of arena.goals) {
+      ctx.beginPath()
+      ctx.arc(goal.x, goal.y, goal.radius, 0, Math.PI * 2)
+      ctx.fillStyle = goal.color + "44"
+      ctx.fill()
+      ctx.strokeStyle = goal.color
+      ctx.lineWidth = 2
+      ctx.stroke()
+      ctx.fillStyle = goal.color
+      ctx.font = "12px sans-serif"
+      ctx.textAlign = "center"
+      ctx.fillText(goal.label, goal.x, goal.y + 4)
+    }
+  }
+}
+
+function drawRobot(
+  ctx: CanvasRenderingContext2D,
+  x: number, y: number, angle: number,
+  servoAngle: number,
+): void {
+  ctx.save()
+  ctx.translate(x, y)
+  ctx.rotate(angle)
+
+  // Robot body
+  ctx.fillStyle = "#22c55e"
+  ctx.strokeStyle = "#16a34a"
+  ctx.lineWidth = 2
+  ctx.beginPath()
+  ctx.rect(-30, -25, 60, 50)
+  ctx.fill()
+  ctx.stroke()
+
+  // Heading arrow
+  ctx.strokeStyle = "#fff"
+  ctx.lineWidth = 2
+  ctx.beginPath()
+  ctx.moveTo(0, 0)
+  ctx.lineTo(25, 0)
+  ctx.stroke()
+
+  // Servo arm (orange line from center)
+  const servoRad = ((servoAngle - 90) * Math.PI) / 180
+  ctx.strokeStyle = "#FF5722"
+  ctx.lineWidth = 3
+  ctx.beginPath()
+  ctx.moveTo(0, 0)
+  ctx.lineTo(Math.cos(servoRad) * 20, Math.sin(servoRad) * 20)
+  ctx.stroke()
+
+  ctx.restore()
+}
+
+function drawLEDs(
+  ctx: CanvasRenderingContext2D,
+  snapshot: WorkspaceSnapshot,
+  brightnessMap: Record<string, number>,
+): void {
+  let ledIndex = 0
+  for (const comp of snapshot.components) {
+    if (comp.type !== "led") continue
+    const def = getComponentDef(comp.type)
+    const brightness = brightnessMap[comp.id] ?? 0
+    const x = 20 + ledIndex * 40
+    const y = CANVAS_H - 30
+
+    ctx.save()
+    if (brightness > 0.1) {
+      ctx.shadowBlur = 12
+      ctx.shadowColor = def.color
+    }
+    ctx.globalAlpha = Math.max(0.15, brightness)
+    ctx.fillStyle = def.color
+    ctx.beginPath()
+    ctx.arc(x, y, 10, 0, Math.PI * 2)
+    ctx.fill()
+    ctx.restore()
+
+    ctx.fillStyle = "#555"
+    ctx.font = "10px sans-serif"
+    ctx.textAlign = "center"
+    ctx.fillText(comp.name, x, y + 18)
+    ledIndex++
+  }
+}
+
 export function WorkspaceSimulatorView({ store }: { store: RobotProjectStore }) {
-  // store.getFlashed() only swaps reference on flash(), and isOutOfSync()
-  // returns a fresh primitive each call — but useSyncExternalStore still
-  // needs stable subscribe/getSnapshot identity across renders to avoid
-  // resubscribing every render, matching the pattern established in
-  // workspace-builder-view.tsx and chassis-canvas.tsx for this store.
-  const subscribe = useCallback((listener: () => void) => store.subscribe(listener), [store])
+  const subscribe = useCallback((l: () => void) => store.subscribe(l), [store])
   const getFlashedSnapshot = useCallback(() => store.getFlashed(), [store])
   const getOutOfSyncSnapshot = useCallback(() => store.isOutOfSync(), [store])
   const flashed = useSyncExternalStore(subscribe, getFlashedSnapshot)
   const outOfSync = useSyncExternalStore(subscribe, getOutOfSyncSnapshot)
 
-  const [componentState, setComponentState] = useState<Record<string, boolean>>({})
   const [running, setRunning] = useState(false)
   const [compileError, setCompileError] = useState<string | null>(null)
   const [runtimeError, setRuntimeError] = useState<string | null>(null)
+  const [selectedArenaId, setSelectedArenaId] = useState("line-follow")
+
+  const canvasRef = useRef<HTMLCanvasElement>(null)
   const avrWorkerRef = useRef<Worker | null>(null)
+  const rapierRef = useRef<{ world: RAPIER.World; robot: VirtualRobot; sensors: SensorSimulation } | null>(null)
+  const animFrameRef = useRef<number>(0)
+  const brightnessMapRef = useRef<Record<string, number>>({})
   const flashedRef = useRef<WorkspaceSnapshot | null>(null)
 
+  // Render loop
+  useEffect(() => {
+    const canvas = canvasRef.current
+    if (!canvas) return
+    const ctx = canvas.getContext("2d")
+    if (!ctx) return
+
+    const selectedArena = ARENAS.find((a) => a.id === selectedArenaId) ?? ARENAS[0]
+
+    function loop() {
+      if (!ctx) return
+      const r = rapierRef.current
+      if (r) {
+        r.robot.update()
+        r.world.step()
+        r.sensors.tick()
+      }
+
+      drawArena(ctx, selectedArena)
+      if (r) {
+        const state = r.robot.getState()
+        drawRobot(ctx, state.x, state.y, state.angle, state.servoAngle)
+      }
+      if (flashedRef.current) {
+        drawLEDs(ctx, flashedRef.current, brightnessMapRef.current)
+      }
+
+      animFrameRef.current = requestAnimationFrame(loop)
+    }
+
+    animFrameRef.current = requestAnimationFrame(loop)
+    return () => cancelAnimationFrame(animFrameRef.current)
+  }, [selectedArenaId])
+
+  // AVR + Rapier bootstrap — re-runs when the flashed snapshot hash changes
   useEffect(() => {
     if (!flashed) return
     flashedRef.current = flashed
-    setComponentState({})
     setRunning(false)
     setCompileError(null)
     setRuntimeError(null)
+    brightnessMapRef.current = {}
+
+    // Tear down previous Rapier world
+    if (rapierRef.current) {
+      rapierRef.current.robot.destroy()
+      rapierRef.current.world.free()
+      rapierRef.current = null
+    }
+
+    const selectedArena = ARENAS.find((a) => a.id === selectedArenaId) ?? ARENAS[0]
+    const sensorPins = deriveSensorPins(flashed)
 
     const avrWorker = new Worker(new URL("@/workers/avr-worker.ts", import.meta.url))
     avrWorkerRef.current = avrWorker
 
-    const bridge = new ChassisPhysicsBridge({
+    const physicsBridge = new ChassisPhysicsBridge({
       components: flashed.components,
-      onComponentStateChange: (id, active) => setComponentState((prev) => ({ ...prev, [id]: active })),
+      onComponentStateChange: (id, _active, dutyCycle) => {
+        brightnessMapRef.current = { ...brightnessMapRef.current, [id]: dutyCycle / 255 }
+      },
+      onMotorsChange: (leftDuty, rightDuty) => {
+        rapierRef.current?.robot.setMotors(leftDuty, rightDuty)
+      },
+      onServoChange: (angleDeg) => {
+        rapierRef.current?.robot.setServoAngle(angleDeg)
+      },
     })
 
     const gpioBridge = new GPIOBridge({
       avrWorker,
-      onPinChange: (payload) => bridge.handlePinChange(payload),
-      onAVRError: (message) => {
-        setRuntimeError(message)
-        setRunning(false)
-      },
+      onPinChange: (payload) => physicsBridge.handlePinChange(payload),
+      onAVRError: (msg) => { setRuntimeError(msg); setRunning(false) },
       onAVRStopped: () => setRunning(false),
     })
 
     avrWorker.onmessage = (e: MessageEvent<AVREvent>) => {
       const ev = e.data
-      switch (ev.type) {
-        case "running":
-          setRunning(true)
-          break
-        case "stopped":
-          setRunning(false)
-          break
-        default:
-          gpioBridge.handleAVREvent(ev)
-          break
-      }
+      if (ev.type === "running") { setRunning(true); return }
+      if (ev.type === "stopped") { setRunning(false); return }
+      gpioBridge.handleAVREvent(ev)
     }
 
-    compileSketch({ code: flashed.code.generatedCode, board: "arduino-uno" })
+    // Initialise Rapier world asynchronously, then compile + run
+    createPhysicsWorld()
+      .then((world) => {
+        addArenaBodies(world, selectedArena.id)
+        const robot = new VirtualRobot(world, selectedArena.robotStartX, selectedArena.robotStartY)
+        const sensors = new SensorSimulation(world, robot, selectedArena, gpioBridge, sensorPins)
+        rapierRef.current = { world, robot, sensors }
+
+        return compileSketch({ code: flashed.code.generatedCode, board: "arduino-uno" })
+      })
       .then((result) => {
+        if (!result) return
         if (result.success) {
           avrWorker.postMessage({ type: "load", hex: result.hex, board: "arduino-uno" })
           avrWorker.postMessage({ type: "run" })
@@ -84,14 +267,22 @@ export function WorkspaceSimulatorView({ store }: { store: RobotProjectStore }) 
     return () => {
       avrWorker.terminate()
       avrWorkerRef.current = null
+      if (rapierRef.current) {
+        rapierRef.current.robot.destroy()
+        rapierRef.current.world.free()
+        rapierRef.current = null
+      }
       setRunning(false)
     }
-    // Re-bootstrap only when the flashed snapshot's hash changes, not on every store notification.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [flashed?.hash])
+  }, [flashed?.hash, selectedArenaId])
 
   if (!flashed) {
-    return <div className="p-4 text-sm text-muted-foreground">Nothing flashed yet — flash from the Builder tab first.</div>
+    return (
+      <div className="p-4 text-sm text-muted-foreground">
+        Nothing flashed yet — flash from the Builder tab first.
+      </div>
+    )
   }
 
   if (outOfSync) {
@@ -103,8 +294,19 @@ export function WorkspaceSimulatorView({ store }: { store: RobotProjectStore }) 
   }
 
   return (
-    <div className="flex h-full flex-col gap-2 p-4">
-      <div className="text-xs text-muted-foreground">{running ? "Running" : "Stopped"}</div>
+    <div className="flex h-full flex-col gap-2 p-2">
+      <div className="flex items-center gap-3">
+        <span className="text-xs text-muted-foreground">{running ? "▶ Running" : "⏹ Stopped"}</span>
+        <select
+          className="rounded border border-border bg-background px-2 py-1 text-xs"
+          value={selectedArenaId}
+          onChange={(e) => setSelectedArenaId(e.target.value)}
+        >
+          {ARENAS.map((a) => (
+            <option key={a.id} value={a.id}>{a.name}</option>
+          ))}
+        </select>
+      </div>
       {compileError && (
         <div data-testid="sim-compile-error" className="rounded border border-destructive/40 bg-destructive/10 p-2 text-xs text-destructive">
           Compile error: {compileError}
@@ -115,22 +317,13 @@ export function WorkspaceSimulatorView({ store }: { store: RobotProjectStore }) 
           Runtime error: {runtimeError}
         </div>
       )}
-      <div className="flex flex-wrap gap-3">
-        {flashedRef.current?.components.map((component) => {
-          const def = getComponentDef(component.type)
-          const active = componentState[component.id] ?? false
-          return (
-            <div
-              key={component.id}
-              data-testid={`sim-component-${component.id}`}
-              className="rounded border border-border p-2 text-xs"
-              style={{ opacity: active ? 1 : 0.4, borderLeftColor: def.color, borderLeftWidth: 4 }}
-            >
-              {component.name} — {active ? "ON" : "OFF"}
-            </div>
-          )
-        })}
-      </div>
+      <canvas
+        ref={canvasRef}
+        width={CANVAS_W}
+        height={CANVAS_H}
+        className="rounded border border-border"
+        style={{ maxWidth: "100%", aspectRatio: `${CANVAS_W}/${CANVAS_H}` }}
+      />
     </div>
   )
 }
