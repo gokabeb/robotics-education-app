@@ -5,6 +5,7 @@ export interface PinChangePayload {
   high: boolean
   isPWM: boolean
   dutyCycle: number
+  cycles?: number
 }
 
 export interface GPIOBridgeOptions {
@@ -38,6 +39,7 @@ export class GPIOBridge {
           high: event.high,
           isPWM: event.isPWM,
           dutyCycle: event.dutyCycle,
+          cycles: event.cycles,
         })
         break
       case "serialOutput":

@@ -50,4 +50,14 @@ describe("GPIOBridge", () => {
     // @ts-expect-error intentional unknown type
     expect(() => bridge.handleAVREvent({ type: "unknown" })).not.toThrow()
   })
+
+  it("passes cycles field through pinChange payload", () => {
+    const received: import("../gpio-bridge").PinChangePayload[] = []
+    const bridge = new GPIOBridge({
+      avrWorker: { postMessage: vi.fn() } as unknown as Worker,
+      onPinChange: (p) => received.push(p),
+    })
+    bridge.handleAVREvent({ type: "pinChange", pin: 9, high: true, isPWM: true, dutyCycle: 128, cycles: 320000 })
+    expect(received[0].cycles).toBe(320000)
+  })
 })

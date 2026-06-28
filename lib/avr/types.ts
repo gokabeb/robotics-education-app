@@ -41,7 +41,7 @@ export type AVREvent =
   | { type: "running" }
   | { type: "paused" }
   | { type: "stopped" }
-  | { type: "pinChange"; pin: number; high: boolean; isPWM: boolean; dutyCycle: number }
+  | { type: "pinChange"; pin: number; high: boolean; isPWM: boolean; dutyCycle: number; cycles?: number }
   | { type: "serialOutput"; text: string }
   | { type: "halted"; reason: "error"; message: string }
 
