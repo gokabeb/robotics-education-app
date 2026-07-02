@@ -6,6 +6,10 @@ import { newtonRaphson } from "@/lib/circuit/solver/newton-raphson"
 import { Resistor } from "@/lib/circuit/components/resistor"
 import { VoltageSource } from "@/lib/circuit/components/voltage-source"
 import { LED } from "@/lib/circuit/components/led"
+import { Button }        from "@/lib/circuit/components/button"
+import { Potentiometer } from "@/lib/circuit/components/potentiometer"
+import { Capacitor }     from "@/lib/circuit/components/capacitor"
+import { NpnBJT }        from "@/lib/circuit/components/bjt"
 import { isNonlinear } from "@/lib/circuit/components/base-component"
 import type {
   CircuitCommand, CircuitEvent, SerializedNetlist, SerializedComponent,
@@ -31,12 +35,16 @@ let tickTimer: ReturnType<typeof setInterval> | null = null
 /** All non-GND nodes tracked for voltage reporting */
 let trackedNodes: NodeId[] = []
 
+const DT = 0.001  // seconds — matches setInterval(tick, 1)
+let capacitors: Capacitor[] = []
+
 // ── Netlist compilation ──────────────────────────────────────────────────────
 
 function buildFromNetlist(netlist: SerializedNetlist): void {
   allComponents = []
   linearComponents = []
   nonlinearComponents = []
+  capacitors = []
   controlledSources = new Map()
 
   const vccSource = new VoltageSource("__vs_VCC", VCC, GND, VCC_VOLTAGE)
@@ -84,6 +92,38 @@ function buildComponent(sc: SerializedComponent): CircuitComponent | null {
       linearComponents.push(vs)
       return vs
     }
+    case "button": {
+      const closed = sc.params.state === "closed"
+      return new Button(sc.id, sc.terminals.t1, sc.terminals.t2, closed)
+    }
+    case "potentiometer": {
+      const R   = (sc.params.resistance as number | undefined) ?? 10000
+      const pos = (sc.params.position  as number | undefined) ?? 0.5
+      return new Potentiometer(
+        sc.id,
+        sc.terminals.t1,
+        sc.terminals.t2,
+        sc.terminals.wiper,
+        R,
+        pos
+      )
+    }
+    case "capacitor": {
+      const C = (sc.params.capacitance as number | undefined) ?? 0.0001
+      const cap = new Capacitor(sc.id, sc.terminals.t1, sc.terminals.t2, C, DT)
+      capacitors.push(cap)
+      return cap
+    }
+    case "bjt": {
+      const beta = (sc.params.beta as number | undefined) ?? 100
+      return new NpnBJT(
+        sc.id,
+        sc.terminals.base,
+        sc.terminals.collector,
+        sc.terminals.emitter,
+        beta
+      )
+    }
     default:
       return null
   }
@@ -95,6 +135,7 @@ function tick(): void {
   if (solver.size === 0) return
 
   const solution = newtonRaphson(solver, linearComponents, nonlinearComponents)
+  for (const cap of capacitors) cap.updateTick(solution, solver)
 
   const nodeVoltages: Record<NodeId, number> = {}
   for (const nodeId of trackedNodes) {
