@@ -11,12 +11,24 @@ export interface ComponentFault {
   suggestion: string
 }
 
-export type ComponentType = "resistor" | "led" | "voltage-source"
+export type ComponentType =
+  | "resistor"
+  | "led"
+  | "voltage-source"
+  | "button"
+  | "potentiometer"
+  | "capacitor"
+  | "bjt"
 
 export interface ComponentParams {
-  resistance?: number            // Ω — for resistor
-  voltage?: number               // V — for voltage-source
-  color?: "red" | "green" | "blue" | "white" | "yellow"  // for LED
+  resistance?: number    // Ω — resistor, potentiometer
+  voltage?: number       // V — voltage-source
+  color?: "red" | "green" | "blue" | "white" | "yellow"  // LED
+  state?: "open" | "closed"   // button
+  position?: number            // 0.0–1.0 — potentiometer wiper
+  capacitance?: number         // F — capacitor
+  beta?: number                // h_FE — BJT
+  wiperNet?: string            // resolved net name — potentiometer (set by toNetlist)
 }
 
 // Serialized form safe for postMessage (no Maps)

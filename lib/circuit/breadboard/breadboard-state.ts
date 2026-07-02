@@ -17,10 +17,11 @@ export type WireEndpoint =
 
 export interface PlacedComponent {
   id: ComponentId
-  type: "resistor" | "led" | "voltage-source"
+  type: "resistor" | "led" | "voltage-source" | "button" | "potentiometer" | "capacitor" | "bjt"
   params: Record<string, number | string>
   terminal1: HolePosition
   terminal2: HolePosition
+  terminal3?: HolePosition  // potentiometer wiper hole; BJT emitter hole
 }
 
 export interface UserWire {
@@ -98,6 +99,12 @@ export class BreadboardState {
     this.wires = this.wires.filter(w => w.id !== id)
   }
 
+  setButtonState(id: ComponentId, closed: boolean): void {
+    const comp = this.components.find(c => c.id === id)
+    if (!comp || comp.type !== "button") return
+    comp.params = { ...comp.params, state: closed ? "closed" : "open" }
+  }
+
   getComponents(): readonly PlacedComponent[] { return this.components }
   getWires():      readonly UserWire[]        { return this.wires }
 
@@ -106,6 +113,7 @@ export class BreadboardState {
     for (const comp of this.components) {
       allBaseNets.add(holeNet(comp.terminal1.row, comp.terminal1.col))
       allBaseNets.add(holeNet(comp.terminal2.row, comp.terminal2.col))
+      if (comp.terminal3) allBaseNets.add(holeNet(comp.terminal3.row, comp.terminal3.col))
     }
     for (const wire of this.wires) {
       allBaseNets.add(netForEndpoint(wire.from))
@@ -132,9 +140,33 @@ export class BreadboardState {
       const p = comp.params as ComponentParams
       let terminals: Record<string, NodeId>
       switch (comp.type) {
-        case "resistor":       terminals = { n1: net1, n2: net2 };       break
-        case "led":            terminals = { anode: net1, cathode: net2 }; break
-        case "voltage-source": terminals = { plus: net1, minus: net2 };  break
+        case "resistor":
+          terminals = { n1: net1, n2: net2 }
+          break
+        case "led":
+          terminals = { anode: net1, cathode: net2 }
+          break
+        case "voltage-source":
+          terminals = { plus: net1, minus: net2 }
+          break
+        case "button":
+          terminals = { t1: net1, t2: net2 }
+          break
+        case "potentiometer": {
+          const wiperNet = comp.terminal3 ? resolve(comp.terminal3) : net2
+          terminals = { t1: net1, t2: net2, wiper: wiperNet }
+          break
+        }
+        case "capacitor":
+          terminals = { t1: net1, t2: net2 }
+          break
+        case "bjt": {
+          const emitterNet = comp.terminal3 ? resolve(comp.terminal3) : net2
+          terminals = { base: net1, collector: net2, emitter: emitterNet }
+          break
+        }
+        default:
+          terminals = { t1: net1, t2: net2 }
       }
       return { id: comp.id, type: comp.type, terminals, params: p } as SerializedComponent
     })
