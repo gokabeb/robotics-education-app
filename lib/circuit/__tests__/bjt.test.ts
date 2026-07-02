@@ -38,6 +38,7 @@ describe("NpnBJT — NR convergence (simple switch)", () => {
 
 describe("NpnBJT — saturation fault", () => {
   it("getFaultState returns saturation warning when Vce < 0.2V", () => {
+    // Rb=1kΩ delivers ~4.3mA base current; β×Ib = 430mA >> Vcc/Rc = 0.5mA → deep saturation
     const solver = new MNASolver()
     solver.setup(["VCC", "BASE", "COL"], ["vs"])
     const vs  = new VoltageSource("vs",  "VCC", "GND", 5.0)
@@ -47,10 +48,56 @@ describe("NpnBJT — saturation fault", () => {
 
     const solution = newtonRaphson(solver, [vs, rb, rc], [bjt])
     const fault = bjt.getFaultState(solution, solver)
-    if (fault !== null) {
-      expect(fault.severity).toBe("warning")
-      expect(fault.message).toContain("saturat")
-    }
-    // Fault may or may not fire depending on operating point; just verify no throw
+    expect(fault).not.toBeNull()
+    expect(fault!.severity).toBe("warning")
+    expect(fault!.message).toContain("saturat")
+  })
+})
+
+describe("NpnBJT — IC ≈ β × IBE", () => {
+  // Active-region circuit: Rb=47kΩ, Rc=100Ω, Vcc=5V, β=100
+  //   Ib ≈ (5−0.6)/47kΩ ≈ 93µA → Ic = 9.3mA < Vcc/Rc = 50mA → active region
+  //   Vcol = 5 − 9.3mA×100Ω ≈ 4.07V (Vce ≈ 4.07V >> 0.2V)
+  it("collector current is within 10% of β × base current (Shockley)", () => {
+    const solver = new MNASolver()
+    solver.setup(["VCC", "BASE", "COL"], ["vs"])
+    const vs  = new VoltageSource("vs",  "VCC", "GND", 5.0)
+    const rb  = new Resistor("rb", "VCC", "BASE", 47000)
+    const rc  = new Resistor("rc", "VCC", "COL",    100)   // small Rc → active region
+    const bjt = new NpnBJT("q1", "BASE", "COL", "GND", 100)
+
+    const solution = newtonRaphson(solver, [vs, rb, rc], [bjt])
+
+    const IS = 1e-14
+    const VT = 0.02585
+    const beta = 100
+
+    const Vb  = solver.voltage(solution, "BASE")
+    const VBE = Vb  // emitter is GND
+    const IBE = IS * (Math.exp(VBE / VT) - 1)
+    const expectedIc = beta * IBE
+
+    const Vcol    = solver.voltage(solution, "COL")
+    const actualIc = (5 - Vcol) / 100
+
+    expect(actualIc).toBeGreaterThan(0)
+    expect(Math.abs(actualIc - expectedIc) / expectedIc).toBeLessThan(0.10)
+  })
+})
+
+describe("NpnBJT — no fault in active region", () => {
+  // Same active-region circuit (Rb=47kΩ, Rc=100Ω, Vcc=5V)
+  // Vce ≈ 4.07V >> 0.2V → no saturation fault
+  it("getFaultState returns null when BJT is in active region (V_CE > 0.2V)", () => {
+    const solver = new MNASolver()
+    solver.setup(["VCC", "BASE", "COL"], ["vs"])
+    const vs  = new VoltageSource("vs",  "VCC", "GND", 5.0)
+    const rb  = new Resistor("rb", "VCC", "BASE", 47000)
+    const rc  = new Resistor("rc", "VCC", "COL",    100)   // small Rc → active region
+    const bjt = new NpnBJT("q1", "BASE", "COL", "GND", 100)
+
+    const solution = newtonRaphson(solver, [vs, rb, rc], [bjt])
+    const fault = bjt.getFaultState(solution, solver)
+    expect(fault).toBeNull()
   })
 })
