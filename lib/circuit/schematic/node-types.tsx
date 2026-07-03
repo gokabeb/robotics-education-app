@@ -48,7 +48,7 @@ const LED_COLORS: Record<string, string> = {
   red: "#ff3333", green: "#33ff66", blue: "#3399ff", white: "#ffffff", yellow: "#ffee33",
 }
 
-function LedNode({ data }: NodeProps) {
+function LEDNode({ data }: NodeProps) {
   const color = LED_COLORS[(data.color as string) ?? "red"] ?? "#ff3333"
   return (
     <NodeShell label="LED" bg="#2a1010" border={color}>
@@ -110,7 +110,7 @@ function CapacitorNode({ data }: NodeProps) {
   )
 }
 
-function BjtNode({ data }: NodeProps) {
+function BJTNode({ data }: NodeProps) {
   const beta = data.beta as number | undefined
   return (
     <NodeShell label={`NPN β=${beta ?? 100}`} bg="#2a1a0a" border="#e8902a">
@@ -127,7 +127,7 @@ function BjtNode({ data }: NodeProps) {
   )
 }
 
-function PowerNode({ data }: NodeProps) {
+function VoltageSourceNode({ data }: NodeProps) {
   return (
     <NodeShell label={(data.label as string) ?? "VCC"} bg="#2a0a0a" border="#cc4444">
       <svg width={24} height={16}>
@@ -153,11 +153,11 @@ function GroundNode({ data }: NodeProps) {
 
 export const NODE_TYPES = {
   resistor:      ResistorNode,
-  led:           LedNode,
+  led:           LEDNode,
   button:        ButtonNode,
   potentiometer: PotentiometerNode,
   capacitor:     CapacitorNode,
-  bjt:           BjtNode,
-  "power-node":  PowerNode,
+  bjt:           BJTNode,
+  "power-node":  VoltageSourceNode,
   "ground-node": GroundNode,
 } as const
