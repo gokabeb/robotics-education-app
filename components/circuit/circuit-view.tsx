@@ -2,9 +2,11 @@
 "use client"
 
 import { useRef, useState, useEffect, useCallback } from "react"
+import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels"
 import { BreadboardCanvas } from "./breadboard-canvas"
 import type { DraggedComponent } from "./breadboard-canvas"
 import { ComponentPalette } from "./component-palette"
+import { SchematicView } from "./schematic-view"
 import { CodeExecutionPanel } from "@/components/simulator/code-execution-panel"
 import { SerialMonitor, makeSerialLine } from "@/components/simulator/serial-monitor"
 import type { SerialLine } from "@/components/simulator/serial-monitor"
@@ -15,6 +17,7 @@ import { GPIOBridge } from "@/lib/avr/gpio-bridge"
 import { ARDUINO_HOLES } from "@/lib/circuit/breadboard/breadboard-layout"
 import type { AVRCommand, AVREvent, CompileDiagnostic, BoardId } from "@/lib/avr/types"
 import type { CircuitEvent, ComponentFault } from "@/lib/circuit/types"
+import type { SerializedNetlist } from "@/lib/circuit/types"
 import { cn } from "@/lib/utils"
 
 type RunState = "idle" | "compiling" | "running" | "paused"
@@ -67,6 +70,7 @@ export function CircuitView({ className }: { className?: string }) {
   const [draggedComp, setDraggedComp] = useState<DraggedComponent | null>(null)
   const [activeTab, setActiveTab] = useState<TabId>("code")
   const [, forceRedraw] = useState(0)
+  const [netlist, setNetlist] = useState<SerializedNetlist>({ nodes: [], components: [] })
 
   const bbStateRef = useRef<BreadboardState>(new BreadboardState())
   const avrWorkerRef = useRef<Worker | null>(null)
@@ -81,8 +85,9 @@ export function CircuitView({ className }: { className?: string }) {
   }, [])
 
   const handleNetlistChange = useCallback(() => {
-    const netlist = bbStateRef.current.toNetlist()
-    bridgeRef.current?.sendNetlist(netlist)
+    const nl = bbStateRef.current.toNetlist()
+    bridgeRef.current?.sendNetlist(nl)
+    setNetlist(nl)
     forceRedraw(n => n + 1)
   }, [])
 
@@ -179,38 +184,55 @@ export function CircuitView({ className }: { className?: string }) {
 
   return (
     <div className={cn("flex h-screen w-full overflow-hidden bg-background", className)}>
-      {/* Left: palette + breadboard */}
-      <div className="flex flex-1 min-w-0 overflow-hidden">
-        {/* Component palette */}
-        <div className="w-36 shrink-0 border-r border-border p-2 overflow-y-auto bg-card">
-          <ComponentPalette
-            onPick={(comp) => setDraggedComp(comp)}
-          />
-          {draggedComp && (
-            <div className="mt-2 rounded bg-primary/10 border border-primary/30 px-2 py-1 text-[10px] text-primary">
-              {draggedComp.type} selected — click a hole to place
-            </div>
-          )}
-        </div>
-
-        {/* Breadboard area */}
-        <div className="flex-1 overflow-auto p-2">
-          <div className="text-[10px] text-muted-foreground/60 mb-1">
-            {runState !== "idle" ? (
-              <span className="text-amber-400">Simulation running — breadboard live</span>
-            ) : (
-              "Click two holes to draw a wire · Click a component/wire to select · Del to remove"
+      {/* Left area: palette + breadboard | schematic split */}
+      <PanelGroup direction="horizontal" className="flex flex-1 min-w-0 overflow-hidden">
+        {/* Breadboard + palette panel (default 60%) */}
+        <Panel defaultSize={60} minSize={30} className="flex overflow-hidden">
+          {/* Component palette */}
+          <div className="w-36 shrink-0 border-r border-border p-2 overflow-y-auto bg-card">
+            <ComponentPalette
+              onPick={(comp) => setDraggedComp(comp)}
+            />
+            {draggedComp && (
+              <div className="mt-2 rounded bg-primary/10 border border-primary/30 px-2 py-1 text-[10px] text-primary">
+                {draggedComp.type} selected — click a hole to place
+              </div>
             )}
           </div>
-          <BreadboardCanvas
-            bbState={bbStateRef.current}
-            brightnessMap={brightnessMap}
-            onNetlistChange={handleNetlistChange}
-            draggedComponent={draggedComp}
-            onDragConsumed={() => setDraggedComp(null)}
-          />
-        </div>
-      </div>
+
+          {/* Breadboard area */}
+          <div className="flex-1 overflow-auto p-2">
+            <div className="text-[10px] text-muted-foreground/60 mb-1">
+              {runState !== "idle" ? (
+                <span className="text-amber-400">Simulation running — breadboard live</span>
+              ) : (
+                "Click two holes to draw a wire · Click a component/wire to select · Del to remove · Click button to toggle"
+              )}
+            </div>
+            <BreadboardCanvas
+              bbState={bbStateRef.current}
+              brightnessMap={brightnessMap}
+              onNetlistChange={handleNetlistChange}
+              draggedComponent={draggedComp}
+              onDragConsumed={() => setDraggedComp(null)}
+            />
+          </div>
+        </Panel>
+
+        <PanelResizeHandle className="w-1 bg-border hover:bg-primary/40 transition-colors cursor-col-resize" />
+
+        {/* Schematic panel (default 40%) */}
+        <Panel defaultSize={40} minSize={30} className="overflow-hidden bg-[#111827]">
+          <div className="flex flex-col h-full">
+            <div className="px-3 py-1.5 text-[10px] font-semibold text-muted-foreground border-b border-border uppercase tracking-wide shrink-0">
+              Schematic
+            </div>
+            <div className="flex-1 min-h-0">
+              <SchematicView netlist={netlist} />
+            </div>
+          </div>
+        </Panel>
+      </PanelGroup>
 
       {/* Right: code + serial panel (340px) */}
       <div className="w-[340px] shrink-0 flex flex-col border-l border-border overflow-hidden">

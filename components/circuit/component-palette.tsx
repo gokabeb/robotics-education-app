@@ -11,6 +11,7 @@ export interface PaletteItem {
 }
 
 const DEFAULT_PALETTE_ITEMS: PaletteItem[] = [
+  // Basic components
   {
     label: "220Ω",
     component: { type: "resistor", params: { resistance: 220 } },
@@ -38,6 +39,27 @@ const DEFAULT_PALETTE_ITEMS: PaletteItem[] = [
     component: { type: "led", params: { color: "blue", forwardVoltage: 3.0, maxCurrent: 0.02 } },
     color: "#3399ff",
   },
+  // Advanced components
+  {
+    label: "Button",
+    component: { type: "button", params: { state: "open" } },
+    color: "#885544",
+  },
+  {
+    label: "Pot 10kΩ",
+    component: { type: "potentiometer", params: { resistance: 10000, position: 0.5 } },
+    color: "#8860c8",
+  },
+  {
+    label: "Cap 100µF",
+    component: { type: "capacitor", params: { capacitance: 0.0001 } },
+    color: "#60aaee",
+  },
+  {
+    label: "NPN BJT",
+    component: { type: "bjt", params: { beta: 100 } },
+    color: "#e8902a",
+  },
 ]
 
 export interface ComponentPaletteProps {
@@ -53,9 +75,9 @@ export function ComponentPalette({ onPick, items, className }: ComponentPaletteP
   return (
     <div className={cn("flex flex-col gap-1", className)}>
       <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide px-1 mb-0.5">
-        Components
+        Basic
       </p>
-      {paletteItems.map((item) => (
+      {paletteItems.slice(0, 6).map((item) => (
         <button
           key={item.label}
           onClick={() => onPick(item.component)}
@@ -68,10 +90,28 @@ export function ComponentPalette({ onPick, items, className }: ComponentPaletteP
         >
           <span
             className="inline-block w-3 h-3 rounded-full shrink-0"
-            style={{
-              background: item.color ?? "#c8a060",
-              border: "1px solid rgba(255,255,255,0.2)",
-            }}
+            style={{ background: item.color ?? "#c8a060", border: "1px solid rgba(255,255,255,0.2)" }}
+          />
+          {item.label}
+        </button>
+      ))}
+      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide px-1 mb-0.5 mt-2">
+        Advanced
+      </p>
+      {paletteItems.slice(6).map((item) => (
+        <button
+          key={item.label}
+          onClick={() => onPick(item.component)}
+          className={cn(
+            "flex items-center gap-2 rounded-md px-2.5 py-1.5 text-xs font-medium",
+            "bg-card border border-border hover:border-primary/60 hover:bg-accent",
+            "transition-colors text-left"
+          )}
+          aria-label={`Add ${item.label}`}
+        >
+          <span
+            className="inline-block w-3 h-3 rounded-full shrink-0"
+            style={{ background: item.color ?? "#c8a060", border: "1px solid rgba(255,255,255,0.2)" }}
           />
           {item.label}
         </button>
@@ -82,6 +122,8 @@ export function ComponentPalette({ onPick, items, className }: ComponentPaletteP
         Click two holes to draw a wire.
         <br />
         Del / Backspace removes selected.
+        <br />
+        Click a Button to toggle it.
       </p>
     </div>
   )
