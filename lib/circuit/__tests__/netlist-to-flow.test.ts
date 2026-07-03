@@ -21,20 +21,20 @@ describe("netlistToFlow — single resistor", () => {
     }],
   }
 
-  it("creates one component node plus VCC and GND nodes", () => {
+  it("creates 3 nodes: resistor + power rails (VCC, GND)", () => {
     const { nodes } = netlistToFlow(netlist)
     const ids = nodes.map(n => n.id)
+    expect(ids).toHaveLength(3)
     expect(ids).toContain("r1")
+    expect(ids).toContain("__VCC")
     expect(ids).toContain("__GND")
   })
 
-  it("creates edges from VCC to r1 and from r1 to GND", () => {
+  it("creates 2 edges: VCC→r1 and r1→GND", () => {
     const { edges } = netlistToFlow(netlist)
-    expect(edges.length).toBeGreaterThanOrEqual(2)
-    const targets = edges.map(e => e.target)
-    expect(targets).toContain("r1")
-    const sources = edges.map(e => e.source)
-    expect(sources).toContain("r1")
+    expect(edges).toHaveLength(2)
+    expect(edges.some(e => e.source === "__VCC" && e.target === "r1")).toBe(true)
+    expect(edges.some(e => e.source === "r1" && e.target === "__GND")).toBe(true)
   })
 })
 
@@ -47,19 +47,24 @@ describe("netlistToFlow — resistor + LED in series", () => {
     ],
   }
 
-  it("creates 2 component nodes + VCC + GND", () => {
+  it("creates 4 nodes: 2 components + power rails (VCC, GND)", () => {
     const { nodes } = netlistToFlow(netlist)
+    expect(nodes).toHaveLength(4)
     expect(nodes.map(n => n.id)).toContain("r1")
     expect(nodes.map(n => n.id)).toContain("l1")
+    expect(nodes.map(n => n.id)).toContain("__VCC")
+    expect(nodes.map(n => n.id)).toContain("__GND")
   })
 
-  it("creates an edge between the two components via MID net", () => {
+  it("creates 3 edges: VCC→r1, l1→r1 (via MID net), l1→GND", () => {
     const { edges } = netlistToFlow(netlist)
-    const hasRtoL = edges.some(e =>
-      (e.source === "r1" && e.target === "l1") ||
-      (e.source === "l1" && e.target === "r1")
+    expect(edges).toHaveLength(3)
+    expect(edges.some(e => e.source === "__VCC" && e.target === "r1")).toBe(true)
+    const hasMidEdge = edges.some(e =>
+      (e.source === "l1" && e.target === "r1") || (e.source === "r1" && e.target === "l1")
     )
-    expect(hasRtoL).toBe(true)
+    expect(hasMidEdge).toBe(true)
+    expect(edges.some(e => e.source === "l1" && e.target === "__GND")).toBe(true)
   })
 
   it("all nodes have dagre-assigned positions (not all zero)", () => {

@@ -3,8 +3,8 @@ import type { Node, Edge } from "@xyflow/react"
 import type { SerializedNetlist } from "../types"
 import { GND, VCC } from "../types"
 
-const NODE_W = 120
-const NODE_H = 60
+const NODE_W = 80
+const NODE_H = 40
 
 export function netlistToFlow(
   netlist: SerializedNetlist
