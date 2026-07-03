@@ -241,6 +241,71 @@ function drawComponents(ctx: CanvasRenderingContext2D, state: RenderState): void
       ctx.strokeStyle = isSelected ? "#ffff00" : "#aa6666"
       ctx.lineWidth = 1
       ctx.stroke()
+
+    } else if (comp.type === "button") {
+      const closed = comp.params.state === "closed"
+      // Leads
+      ctx.strokeStyle = "#888"
+      ctx.lineWidth = 1.5
+      ctx.beginPath()
+      ctx.moveTo(x1, y1); ctx.lineTo(cx - 10, cy)
+      ctx.moveTo(x2, y2); ctx.lineTo(cx + 10, cy)
+      ctx.stroke()
+      // Two contact circles
+      ctx.fillStyle = isSelected ? "#ffee88" : (closed ? "#44dd88" : "#885544")
+      ctx.beginPath(); ctx.arc(cx - 10, cy, 4, 0, Math.PI * 2); ctx.fill()
+      ctx.beginPath(); ctx.arc(cx + 10, cy, 4, 0, Math.PI * 2); ctx.fill()
+      // Bridge line when closed
+      if (closed) {
+        ctx.strokeStyle = "#44dd88"; ctx.lineWidth = 2
+        ctx.beginPath(); ctx.moveTo(cx - 10, cy); ctx.lineTo(cx + 10, cy); ctx.stroke()
+      }
+      ctx.fillStyle = "#ccc"; ctx.font = "7px monospace"; ctx.textAlign = "center"
+      ctx.fillText(closed ? "CLOSED" : "OPEN", cx, cy + 14)
+
+    } else if (comp.type === "potentiometer") {
+      ctx.fillStyle = isSelected ? "#ffee88" : "#8860c8"
+      ctx.strokeStyle = isSelected ? "#ffff00" : "#6040a8"
+      ctx.lineWidth = 1
+      roundRect(ctx, cx - 12, cy - 5, 24, 10, 3)
+      ctx.fill(); ctx.stroke()
+      // Diagonal arrow
+      ctx.strokeStyle = "#fff"; ctx.lineWidth = 1
+      ctx.beginPath(); ctx.moveTo(cx - 8, cy + 3); ctx.lineTo(cx + 8, cy - 3)
+      ctx.moveTo(cx + 4, cy - 3); ctx.lineTo(cx + 8, cy - 3); ctx.lineTo(cx + 8, cy + 1)
+      ctx.stroke()
+      ctx.fillStyle = "#333"; ctx.font = "bold 7px monospace"; ctx.textAlign = "center"
+      ctx.fillText("POT", cx, cy + 3)
+
+    } else if (comp.type === "capacitor") {
+      // Leads
+      ctx.strokeStyle = "#888"; ctx.lineWidth = 1.5
+      ctx.beginPath()
+      ctx.moveTo(x1, y1); ctx.lineTo(cx - 4, cy)
+      ctx.moveTo(x2, y2); ctx.lineTo(cx + 4, cy)
+      ctx.stroke()
+      // Two plates
+      ctx.strokeStyle = isSelected ? "#ffee88" : "#60aaee"; ctx.lineWidth = 2.5
+      ctx.beginPath(); ctx.moveTo(cx - 4, cy - 7); ctx.lineTo(cx - 4, cy + 7); ctx.stroke()
+      ctx.beginPath(); ctx.moveTo(cx + 4, cy - 7); ctx.lineTo(cx + 4, cy + 7); ctx.stroke()
+      ctx.fillStyle = "#999"; ctx.font = "7px monospace"; ctx.textAlign = "center"
+      const Cv = comp.params.capacitance
+      ctx.fillText(Cv ? `${(Number(Cv) * 1e6).toFixed(0)}µF` : "C", cx, cy + 16)
+
+    } else if (comp.type === "bjt") {
+      ctx.beginPath()
+      ctx.arc(cx, cy, 10, 0, Math.PI * 2)
+      ctx.fillStyle = isSelected ? "#ffee88" : "#e8902a"
+      ctx.strokeStyle = isSelected ? "#ffff00" : "#b86010"
+      ctx.lineWidth = 1.5
+      ctx.fill(); ctx.stroke()
+      ctx.strokeStyle = "#fff"; ctx.lineWidth = 1.5
+      // Base lead (left)
+      ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(cx - 5, cy); ctx.stroke()
+      // Collector lead (top of terminal2)
+      ctx.beginPath(); ctx.moveTo(cx, cy - 5); ctx.lineTo(cx, y2); ctx.stroke()
+      ctx.fillStyle = "#333"; ctx.font = "bold 6px monospace"; ctx.textAlign = "center"
+      ctx.fillText("NPN", cx, cy + 3)
     }
   }
 }

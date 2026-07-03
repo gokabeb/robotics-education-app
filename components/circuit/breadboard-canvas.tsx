@@ -13,7 +13,7 @@ import { cn } from "@/lib/utils"
 import type { NodeId } from "@/lib/circuit/types"
 
 export interface DraggedComponent {
-  type: "resistor" | "led"
+  type: "resistor" | "led" | "button" | "potentiometer" | "capacitor" | "bjt"
   params: Record<string, number | string>
 }
 
@@ -130,14 +130,19 @@ export function BreadboardCanvas({
         const hole = snapToHole(cx, cy)
         if (!hole) return
         const id = `comp_${componentIdCounter++}`
-        // Second terminal is 2 rows over in the same column
-        const terminal2Row = Math.min(hole.row + 2, BREADBOARD_ROWS)
+        const row2 = Math.min(hole.row + 2, BREADBOARD_ROWS)
+        const row3 = Math.min(hole.row + 1, BREADBOARD_ROWS)
+
+        const isThreeTerminal =
+          draggedComponent.type === "potentiometer" || draggedComponent.type === "bjt"
+
         bbState.addComponent({
           id,
           type: draggedComponent.type,
           params: draggedComponent.params,
           terminal1: hole,
-          terminal2: { row: terminal2Row, col: hole.col },
+          terminal2: { row: row2, col: hole.col },
+          ...(isThreeTerminal ? { terminal3: { row: row3, col: hole.col } } : {}),
         })
         onDragConsumed()
         onNetlistChange()
@@ -172,6 +177,13 @@ export function BreadboardCanvas({
         const minY = Math.min(y1, y2) - 8
         const maxY = Math.max(y1, y2) + 8
         if (cx >= minX && cx <= maxX && cy >= minY && cy <= maxY) {
+          if (comp.type === "button") {
+            const currentlyClosed = comp.params.state === "closed"
+            bbState.setButtonState(comp.id, !currentlyClosed)
+            onNetlistChange()
+            redraw()
+            return
+          }
           setSelectedId(comp.id)
           return
         }
