@@ -28,7 +28,6 @@ export interface ComponentParams {
   position?: number            // 0.0–1.0 — potentiometer wiper
   capacitance?: number         // F — capacitor
   beta?: number                // h_FE — BJT
-  wiperNet?: string            // resolved net name — potentiometer (set by toNetlist)
 }
 
 // Serialized form safe for postMessage (no Maps)

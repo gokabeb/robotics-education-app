@@ -1,3 +1,4 @@
+import { Handle, Position } from "@xyflow/react"
 import type { NodeProps } from "@xyflow/react"
 
 function NodeShell({
@@ -83,6 +84,9 @@ function PotentiometerNode({ data }: NodeProps) {
   const R = data.resistance as number | undefined
   return (
     <NodeShell label={R ? `${R}Ω POT` : "POT"} bg="#1a0e2a" border="#8860c8">
+      <Handle type="target" position={Position.Left} id="t1" />
+      <Handle type="source" position={Position.Right} id="t2" />
+      <Handle type="source" position={Position.Bottom} id="wiper" />
       <svg width={44} height={20}>
         <rect x={4} y={5} width={28} height={10} fill="#8860c8" opacity={0.6} rx={2} />
         <line x1={0} y1={10} x2={4} y2={10} stroke="#888" strokeWidth={1.5} />
@@ -114,6 +118,9 @@ function BJTNode({ data }: NodeProps) {
   const beta = data.beta as number | undefined
   return (
     <NodeShell label={`NPN β=${beta ?? 100}`} bg="#2a1a0a" border="#e8902a">
+      <Handle type="target" position={Position.Left} id="base" />
+      <Handle type="source" position={Position.Top} id="collector" />
+      <Handle type="source" position={Position.Bottom} id="emitter" />
       <svg width={44} height={36}>
         <circle cx={22} cy={18} r={14} fill="none" stroke="#e8902a" strokeWidth={1.5} />
         <line x1={22} y1={6} x2={22} y2={30} stroke="#e8902a" strokeWidth={1.5} />

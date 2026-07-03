@@ -75,7 +75,7 @@ export class NpnBJT implements NonlinearCircuitComponent {
       }
       if (iemit >= 0) {
         if (ibase >= 0) G[iemit][ibase] -= Gm
-        if (iemit >= 0) G[iemit][iemit] += Gm
+        G[iemit][iemit] += Gm
       }
       solver.stampI(b, this.collector, this.emitter, IceCorr)
 

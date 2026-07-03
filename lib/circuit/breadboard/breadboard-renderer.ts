@@ -276,6 +276,15 @@ function drawComponents(ctx: CanvasRenderingContext2D, state: RenderState): void
       ctx.stroke()
       ctx.fillStyle = "#333"; ctx.font = "bold 7px monospace"; ctx.textAlign = "center"
       ctx.fillText("POT", cx, cy + 3)
+      // End leads
+      ctx.strokeStyle = "#888"; ctx.lineWidth = 1.5
+      ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(cx - 12, cy); ctx.stroke()
+      ctx.beginPath(); ctx.moveTo(x2, y2); ctx.lineTo(cx + 12, cy); ctx.stroke()
+      // Wiper lead (terminal3)
+      if (comp.terminal3) {
+        const x3 = holeX(comp.terminal3.row), y3 = holeY(comp.terminal3.col)
+        ctx.beginPath(); ctx.moveTo(cx, cy + 5); ctx.lineTo(x3, y3); ctx.stroke()
+      }
 
     } else if (comp.type === "capacitor") {
       // Leads
@@ -304,6 +313,11 @@ function drawComponents(ctx: CanvasRenderingContext2D, state: RenderState): void
       ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(cx - 5, cy); ctx.stroke()
       // Collector lead (top of terminal2)
       ctx.beginPath(); ctx.moveTo(cx, cy - 5); ctx.lineTo(cx, y2); ctx.stroke()
+      // Emitter lead (terminal3)
+      if (comp.terminal3) {
+        const x3 = holeX(comp.terminal3.row), y3 = holeY(comp.terminal3.col)
+        ctx.beginPath(); ctx.moveTo(cx, cy + 5); ctx.lineTo(x3, y3); ctx.stroke()
+      }
       ctx.fillStyle = "#333"; ctx.font = "bold 6px monospace"; ctx.textAlign = "center"
       ctx.fillText("NPN", cx, cy + 3)
     }
