@@ -65,7 +65,7 @@
 - Produces: `ComponentType` expanded to include `"button" | "potentiometer" | "capacitor" | "bjt"`; `ComponentParams` with new fields; `PlacedComponent` with `terminal3?`; `BreadboardState.setButtonState()`; updated `toNetlist()`.
 - Consumed by: all subsequent tasks.
 
-- [ ] **Step 1: Install new packages**
+- [x] **Step 1: Install new packages**
 
 ```bash
 npm install @xyflow/react @dagrejs/dagre
@@ -73,7 +73,7 @@ npm install @xyflow/react @dagrejs/dagre
 
 Expected: both appear in `package.json` dependencies and `package-lock.json`.
 
-- [ ] **Step 2: Expand `ComponentType` and `ComponentParams` in `lib/circuit/types.ts`**
+- [x] **Step 2: Expand `ComponentType` and `ComponentParams` in `lib/circuit/types.ts`**
 
 Replace the existing `ComponentType` and `ComponentParams` with:
 
@@ -99,7 +99,7 @@ export interface ComponentParams {
 }
 ```
 
-- [ ] **Step 3: Update `PlacedComponent` in `lib/circuit/breadboard/breadboard-state.ts`**
+- [x] **Step 3: Update `PlacedComponent` in `lib/circuit/breadboard/breadboard-state.ts`**
 
 Replace the `PlacedComponent` interface:
 
@@ -114,7 +114,7 @@ export interface PlacedComponent {
 }
 ```
 
-- [ ] **Step 4: Add `setButtonState()` to `BreadboardState`**
+- [x] **Step 4: Add `setButtonState()` to `BreadboardState`**
 
 Inside the `BreadboardState` class, after `removeWire()`:
 
@@ -126,7 +126,7 @@ setButtonState(id: ComponentId, closed: boolean): void {
 }
 ```
 
-- [ ] **Step 5: Update `toNetlist()` to handle new types and `terminal3`**
+- [x] **Step 5: Update `toNetlist()` to handle new types and `terminal3`**
 
 In `toNetlist()`, replace the section that builds `allBaseNets` to also include `terminal3`:
 
@@ -179,7 +179,7 @@ const serializedComponents: SerializedComponent[] = this.components.map(comp => 
 })
 ```
 
-- [ ] **Step 6: Verify TypeScript compiles**
+- [x] **Step 6: Verify TypeScript compiles**
 
 ```bash
 npx tsc --noEmit
@@ -187,7 +187,7 @@ npx tsc --noEmit
 
 Expected: no errors.
 
-- [ ] **Step 7: Verify existing tests still pass**
+- [x] **Step 7: Verify existing tests still pass**
 
 ```bash
 npx vitest run
@@ -195,7 +195,7 @@ npx vitest run
 
 Expected: all 153 tests pass.
 
-- [ ] **Step 8: Commit**
+- [x] **Step 8: Commit**
 
 ```bash
 git add package.json package-lock.json lib/circuit/types.ts lib/circuit/breadboard/breadboard-state.ts
@@ -214,7 +214,7 @@ git commit -m "feat(phase4): install @xyflow/react + @dagrejs/dagre; expand circ
 - Consumes: `CircuitComponent` from `base-component.ts`; `MNASolver` from `mna-solver.ts`; `ComponentFault`, `ComponentId`, `NodeId` from `types.ts`.
 - Produces: `Button` class — `new Button(id, t1, t2, closed)` where `closed: boolean`.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 Create `lib/circuit/__tests__/button.test.ts`:
 
@@ -267,7 +267,7 @@ describe("Button — closed", () => {
 })
 ```
 
-- [ ] **Step 2: Run tests to confirm they fail**
+- [x] **Step 2: Run tests to confirm they fail**
 
 ```bash
 npx vitest run lib/circuit/__tests__/button.test.ts
@@ -275,7 +275,7 @@ npx vitest run lib/circuit/__tests__/button.test.ts
 
 Expected: `FAIL` — `Button` not found.
 
-- [ ] **Step 3: Implement `lib/circuit/components/button.ts`**
+- [x] **Step 3: Implement `lib/circuit/components/button.ts`**
 
 ```ts
 import type { MNASolver } from "../solver/mna-solver"
@@ -305,7 +305,7 @@ export class Button implements CircuitComponent {
 }
 ```
 
-- [ ] **Step 4: Run tests to confirm they pass**
+- [x] **Step 4: Run tests to confirm they pass**
 
 ```bash
 npx vitest run lib/circuit/__tests__/button.test.ts
@@ -313,7 +313,7 @@ npx vitest run lib/circuit/__tests__/button.test.ts
 
 Expected: all 5 tests pass.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add lib/circuit/components/button.ts lib/circuit/__tests__/button.test.ts
@@ -332,7 +332,7 @@ git commit -m "feat(phase4): add Button circuit component (open/closed conductan
 - Consumes: `CircuitComponent` from `base-component.ts`; `MNASolver`.
 - Produces: `Potentiometer` class — `new Potentiometer(id, t1, t2, wiper, R, position)`.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 Create `lib/circuit/__tests__/potentiometer.test.ts`:
 
@@ -391,7 +391,7 @@ describe("Potentiometer — voltage divider integration", () => {
 })
 ```
 
-- [ ] **Step 2: Run tests to confirm they fail**
+- [x] **Step 2: Run tests to confirm they fail**
 
 ```bash
 npx vitest run lib/circuit/__tests__/potentiometer.test.ts
@@ -399,7 +399,7 @@ npx vitest run lib/circuit/__tests__/potentiometer.test.ts
 
 Expected: `FAIL` — `Potentiometer` not found.
 
-- [ ] **Step 3: Implement `lib/circuit/components/potentiometer.ts`**
+- [x] **Step 3: Implement `lib/circuit/components/potentiometer.ts`**
 
 ```ts
 import type { MNASolver } from "../solver/mna-solver"
@@ -434,7 +434,7 @@ export class Potentiometer implements CircuitComponent {
 }
 ```
 
-- [ ] **Step 4: Run tests to confirm they pass**
+- [x] **Step 4: Run tests to confirm they pass**
 
 ```bash
 npx vitest run lib/circuit/__tests__/potentiometer.test.ts
@@ -442,7 +442,7 @@ npx vitest run lib/circuit/__tests__/potentiometer.test.ts
 
 Expected: all 4 tests pass.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add lib/circuit/components/potentiometer.ts lib/circuit/__tests__/potentiometer.test.ts
@@ -461,7 +461,7 @@ git commit -m "feat(phase4): add Potentiometer circuit component (two-resistor v
 - Consumes: `CircuitComponent` from `base-component.ts`.
 - Produces: `Capacitor` class — `new Capacitor(id, t1, t2, C, dt)`. Has public `updateTick(solution, solver)` called by the circuit worker after each solve to advance `V_prev`.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 Create `lib/circuit/__tests__/capacitor.test.ts`:
 
@@ -522,7 +522,7 @@ describe("Capacitor — companion model", () => {
 })
 ```
 
-- [ ] **Step 2: Run tests to confirm they fail**
+- [x] **Step 2: Run tests to confirm they fail**
 
 ```bash
 npx vitest run lib/circuit/__tests__/capacitor.test.ts
@@ -530,7 +530,7 @@ npx vitest run lib/circuit/__tests__/capacitor.test.ts
 
 Expected: `FAIL` — `Capacitor` not found.
 
-- [ ] **Step 3: Implement `lib/circuit/components/capacitor.ts`**
+- [x] **Step 3: Implement `lib/circuit/components/capacitor.ts`**
 
 ```ts
 import type { MNASolver } from "../solver/mna-solver"
@@ -581,7 +581,7 @@ export class Capacitor implements CircuitComponent {
 }
 ```
 
-- [ ] **Step 4: Run tests to confirm they pass**
+- [x] **Step 4: Run tests to confirm they pass**
 
 ```bash
 npx vitest run lib/circuit/__tests__/capacitor.test.ts
@@ -589,7 +589,7 @@ npx vitest run lib/circuit/__tests__/capacitor.test.ts
 
 Expected: all 3 tests pass.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add lib/circuit/components/capacitor.ts lib/circuit/__tests__/capacitor.test.ts
@@ -608,7 +608,7 @@ git commit -m "feat(phase4): add Capacitor circuit component (backward Euler com
 - Consumes: `NonlinearCircuitComponent` from `base-component.ts`; `isNonlinear` type guard.
 - Produces: `NpnBJT` class — `new NpnBJT(id, base, collector, emitter, beta)`. Implements `NonlinearCircuitComponent` (has `stampLinearized` + `updateOperatingPoint`).
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 Create `lib/circuit/__tests__/bjt.test.ts`:
 
@@ -671,7 +671,7 @@ describe("NpnBJT — saturation fault", () => {
 })
 ```
 
-- [ ] **Step 2: Run tests to confirm they fail**
+- [x] **Step 2: Run tests to confirm they fail**
 
 ```bash
 npx vitest run lib/circuit/__tests__/bjt.test.ts
@@ -679,7 +679,7 @@ npx vitest run lib/circuit/__tests__/bjt.test.ts
 
 Expected: `FAIL` — `NpnBJT` not found.
 
-- [ ] **Step 3: Implement `lib/circuit/components/bjt.ts`**
+- [x] **Step 3: Implement `lib/circuit/components/bjt.ts`**
 
 ```ts
 import type { MNASolver } from "../solver/mna-solver"
@@ -779,7 +779,7 @@ export class NpnBJT implements NonlinearCircuitComponent {
 }
 ```
 
-- [ ] **Step 4: Run tests to confirm they pass**
+- [x] **Step 4: Run tests to confirm they pass**
 
 ```bash
 npx vitest run lib/circuit/__tests__/bjt.test.ts
@@ -787,7 +787,7 @@ npx vitest run lib/circuit/__tests__/bjt.test.ts
 
 Expected: all 4 tests pass.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add lib/circuit/components/bjt.ts lib/circuit/__tests__/bjt.test.ts
@@ -805,7 +805,7 @@ git commit -m "feat(phase4): add NPN BJT circuit component (Ebers-Moll, Newton-R
 - Consumes: `Button`, `Potentiometer`, `Capacitor`, `NpnBJT` from `lib/circuit/components/`.
 - Produces: `buildComponent()` handles all 7 `ComponentType` values; `Capacitor.updateTick()` called each tick.
 
-- [ ] **Step 1: Add imports for new component classes**
+- [x] **Step 1: Add imports for new component classes**
 
 At the top of `workers/circuit-worker.ts`, add after the existing component imports:
 
@@ -816,7 +816,7 @@ import { Capacitor }     from "@/lib/circuit/components/capacitor"
 import { NpnBJT }        from "@/lib/circuit/components/bjt"
 ```
 
-- [ ] **Step 2: Add `DT` constant and `capacitors` tracking array**
+- [x] **Step 2: Add `DT` constant and `capacitors` tracking array**
 
 After the existing state declarations (after `let trackedNodes`), add:
 
@@ -825,7 +825,7 @@ const DT = 0.001  // seconds — matches setInterval(tick, 1)
 let capacitors: Capacitor[] = []
 ```
 
-- [ ] **Step 3: Reset `capacitors` in `buildFromNetlist()`**
+- [x] **Step 3: Reset `capacitors` in `buildFromNetlist()`**
 
 In `buildFromNetlist()`, after the line `nonlinearComponents = []`, add:
 
@@ -833,7 +833,7 @@ In `buildFromNetlist()`, after the line `nonlinearComponents = []`, add:
 capacitors = []
 ```
 
-- [ ] **Step 4: Add 4 new cases to `buildComponent()`**
+- [x] **Step 4: Add 4 new cases to `buildComponent()`**
 
 Replace the `default: return null` at the end of `buildComponent()` switch with:
 
@@ -874,7 +874,7 @@ Replace the `default: return null` at the end of `buildComponent()` switch with:
       return null
 ```
 
-- [ ] **Step 5: Call `updateTick()` on capacitors after each solve in `tick()`**
+- [x] **Step 5: Call `updateTick()` on capacitors after each solve in `tick()`**
 
 In the `tick()` function, after `const solution = newtonRaphson(...)`, add:
 
@@ -882,7 +882,7 @@ In the `tick()` function, after `const solution = newtonRaphson(...)`, add:
   for (const cap of capacitors) cap.updateTick(solution, solver)
 ```
 
-- [ ] **Step 6: Run the full test suite**
+- [x] **Step 6: Run the full test suite**
 
 ```bash
 npx vitest run
@@ -890,7 +890,7 @@ npx vitest run
 
 Expected: all tests still pass (circuit-worker has no unit tests of its own; the component tests already pass).
 
-- [ ] **Step 7: Verify TypeScript**
+- [x] **Step 7: Verify TypeScript**
 
 ```bash
 npx tsc --noEmit
@@ -898,7 +898,7 @@ npx tsc --noEmit
 
 Expected: no errors.
 
-- [ ] **Step 8: Commit**
+- [x] **Step 8: Commit**
 
 ```bash
 git add workers/circuit-worker.ts
@@ -917,7 +917,7 @@ git commit -m "feat(phase4): wire Button/Potentiometer/Capacitor/BJT into circui
 - Consumes: `BreadboardState.setButtonState()` (Task 1); new `PlacedComponent.type` values.
 - Produces: button click-to-toggle; 3-terminal component placement; silhouettes for all 4 new types.
 
-- [ ] **Step 1: Expand `DraggedComponent.type` in `breadboard-canvas.tsx`**
+- [x] **Step 1: Expand `DraggedComponent.type` in `breadboard-canvas.tsx`**
 
 Replace the existing `DraggedComponent` interface:
 
@@ -928,7 +928,7 @@ export interface DraggedComponent {
 }
 ```
 
-- [ ] **Step 2: Handle 3-terminal component placement in `handleClick`**
+- [x] **Step 2: Handle 3-terminal component placement in `handleClick`**
 
 In the `handleClick` callback, replace the entire "Place dragged component" block (from `if (draggedComponent) {` to its closing `}`):
 
@@ -958,7 +958,7 @@ In the `handleClick` callback, replace the entire "Place dragged component" bloc
       }
 ```
 
-- [ ] **Step 3: Add button click-to-toggle in `handleClick`**
+- [x] **Step 3: Add button click-to-toggle in `handleClick`**
 
 In `handleClick`, inside the "Check component click for selection" loop, replace the `setSelectedId(comp.id); return` line with:
 
@@ -974,7 +974,7 @@ In `handleClick`, inside the "Check component click for selection" loop, replace
           return
 ```
 
-- [ ] **Step 4: Add silhouettes for 4 new types in `breadboard-renderer.ts`**
+- [x] **Step 4: Add silhouettes for 4 new types in `breadboard-renderer.ts`**
 
 In `drawComponents()`, after the closing `}` of the `led` branch (before the final `}`), add:
 
@@ -1045,7 +1045,7 @@ In `drawComponents()`, after the closing `}` of the `led` branch (before the fin
       ctx.fillText("NPN", cx, cy + 3)
 ```
 
-- [ ] **Step 5: Run full test suite**
+- [x] **Step 5: Run full test suite**
 
 ```bash
 npx vitest run
@@ -1053,7 +1053,7 @@ npx vitest run
 
 Expected: all tests pass.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add components/circuit/breadboard-canvas.tsx lib/circuit/breadboard/breadboard-renderer.ts
@@ -1072,7 +1072,7 @@ git commit -m "feat(phase4): expand canvas for button/potentiometer/capacitor/bj
 - Consumes: `SerializedNetlist`, `GND`, `VCC` from `lib/circuit/types.ts`; `@dagrejs/dagre`.
 - Produces: `netlistToFlow(netlist: SerializedNetlist): { nodes: Node[], edges: Edge[] }` where `Node` and `Edge` are from `@xyflow/react`.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 Create `lib/circuit/__tests__/netlist-to-flow.test.ts`:
 
@@ -1149,7 +1149,7 @@ describe("netlistToFlow — resistor + LED in series", () => {
 })
 ```
 
-- [ ] **Step 2: Run tests to confirm they fail**
+- [x] **Step 2: Run tests to confirm they fail**
 
 ```bash
 npx vitest run lib/circuit/__tests__/netlist-to-flow.test.ts
@@ -1157,7 +1157,7 @@ npx vitest run lib/circuit/__tests__/netlist-to-flow.test.ts
 
 Expected: `FAIL` — module not found.
 
-- [ ] **Step 3: Create the schematic directory and implement `netlist-to-flow.ts`**
+- [x] **Step 3: Create the schematic directory and implement `netlist-to-flow.ts`**
 
 Create directory `lib/circuit/schematic/` then create `lib/circuit/schematic/netlist-to-flow.ts`:
 
@@ -1274,7 +1274,7 @@ export function netlistToFlow(
 }
 ```
 
-- [ ] **Step 4: Run tests to confirm they pass**
+- [x] **Step 4: Run tests to confirm they pass**
 
 ```bash
 npx vitest run lib/circuit/__tests__/netlist-to-flow.test.ts
@@ -1282,7 +1282,7 @@ npx vitest run lib/circuit/__tests__/netlist-to-flow.test.ts
 
 Expected: all 7 tests pass.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add lib/circuit/schematic/netlist-to-flow.ts lib/circuit/__tests__/netlist-to-flow.test.ts
@@ -1300,7 +1300,7 @@ git commit -m "feat(phase4): add netlistToFlow() transform with dagre auto-layou
 - Consumes: `@xyflow/react` (NodeProps); no runtime deps beyond React.
 - Produces: `NODE_TYPES` record — pass directly as `nodeTypes` prop to `<ReactFlow>`.
 
-- [ ] **Step 1: Create `lib/circuit/schematic/node-types.ts`**
+- [x] **Step 1: Create `lib/circuit/schematic/node-types.ts`**
 
 ```tsx
 import type { NodeProps } from "@xyflow/react"
@@ -1468,7 +1468,7 @@ export const NODE_TYPES = {
 } as const
 ```
 
-- [ ] **Step 2: Verify TypeScript**
+- [x] **Step 2: Verify TypeScript**
 
 ```bash
 npx tsc --noEmit
@@ -1476,7 +1476,7 @@ npx tsc --noEmit
 
 Expected: no errors.
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add lib/circuit/schematic/node-types.ts
@@ -1494,7 +1494,7 @@ git commit -m "feat(phase4): add React Flow custom SVG node types for schematic 
 - Consumes: `netlistToFlow` from `lib/circuit/schematic/netlist-to-flow.ts`; `NODE_TYPES` from `lib/circuit/schematic/node-types.ts`; `SerializedNetlist` from `lib/circuit/types.ts`; `@xyflow/react`.
 - Produces: `SchematicView({ netlist })` — a React component, renders React Flow read-only schematic.
 
-- [ ] **Step 1: Create `components/circuit/schematic-view.tsx`**
+- [x] **Step 1: Create `components/circuit/schematic-view.tsx`**
 
 ```tsx
 "use client"
@@ -1538,7 +1538,7 @@ export function SchematicView({ netlist }: { netlist: SerializedNetlist }) {
 }
 ```
 
-- [ ] **Step 2: Verify TypeScript**
+- [x] **Step 2: Verify TypeScript**
 
 ```bash
 npx tsc --noEmit
@@ -1546,7 +1546,7 @@ npx tsc --noEmit
 
 Expected: no errors.
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add components/circuit/schematic-view.tsx
@@ -1565,7 +1565,7 @@ git commit -m "feat(phase4): add SchematicView component (React Flow, read-only)
 - Consumes: `SchematicView` (Task 10); `Panel`, `PanelGroup`, `PanelResizeHandle` from `react-resizable-panels` (already installed); `SerializedNetlist` state.
 - Produces: Horizontal split breadboard/schematic; 4 new palette entries.
 
-- [ ] **Step 1: Add `netlist` state and `SchematicView` import to `circuit-view.tsx`**
+- [x] **Step 1: Add `netlist` state and `SchematicView` import to `circuit-view.tsx`**
 
 At the top of `circuit-view.tsx`, add the import after existing imports:
 
@@ -1592,7 +1592,7 @@ Update `handleNetlistChange` to also set netlist state:
   }, [])
 ```
 
-- [ ] **Step 2: Replace the breadboard area with a horizontal split**
+- [x] **Step 2: Replace the breadboard area with a horizontal split**
 
 In the JSX return, replace the current `{/* Left: palette + breadboard */}` block (from its opening `<div>` to its closing `</div>`, i.e., everything before `{/* Right: code + serial panel */}`) with:
 
@@ -1648,7 +1648,7 @@ In the JSX return, replace the current `{/* Left: palette + breadboard */}` bloc
       </PanelGroup>
 ```
 
-- [ ] **Step 3: Add 4 new entries to `component-palette.tsx`**
+- [x] **Step 3: Add 4 new entries to `component-palette.tsx`**
 
 In `component-palette.tsx`, replace the entire `DEFAULT_PALETTE_ITEMS` array with:
 
@@ -1766,7 +1766,7 @@ Also update the palette JSX to show a section separator. Replace the `return` bl
   )
 ```
 
-- [ ] **Step 4: Run the full test suite**
+- [x] **Step 4: Run the full test suite**
 
 ```bash
 npx vitest run
@@ -1774,7 +1774,7 @@ npx vitest run
 
 Expected: all 153+ tests pass (new tests from Tasks 2–5 + 8 added).
 
-- [ ] **Step 5: Verify TypeScript**
+- [x] **Step 5: Verify TypeScript**
 
 ```bash
 npx tsc --noEmit
@@ -1782,7 +1782,7 @@ npx tsc --noEmit
 
 Expected: no errors.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add components/circuit/circuit-view.tsx components/circuit/component-palette.tsx
